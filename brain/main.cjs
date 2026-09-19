@@ -1359,7 +1359,7 @@ async function probeOnline(options = {}) {
 
 // electron/main.ts
 var APP_VERSION = true ? "0.2.0" : "0.0.0";
-var BRAIN_VERSION = true ? "0.2.0" : APP_VERSION;
+var BRAIN_VERSION = true ? "0.2.1" : APP_VERSION;
 var BRAIN_DIR = process.env.POS_BRAIN_DIR ?? __dirname;
 var UPDATE_BASE = process.env.POS_UPDATE_BASE ?? "https://raw.githubusercontent.com/deepeshjha98/POS_Application_release/main";
 function versionLessThan(a, b) {
@@ -1376,10 +1376,9 @@ var db;
 var products;
 var categories;
 var mainWindow = null;
-function webRoot() {
-  const packaged = (0, import_node_path.join)(process.resourcesPath, "web", "index.html");
-  const candidates = [(0, import_node_path.join)(import_electron.app.getPath("userData"), "web", "index.html")];
-  if (import_electron.app.isPackaged) candidates.push(packaged);
+function shippedWeb() {
+  const candidates = [];
+  if (import_electron.app.isPackaged) candidates.push((0, import_node_path.join)(process.resourcesPath, "web", "index.html"));
   for (const folder of [process.env.POS_SHIPPED_BRAIN_DIR, BRAIN_DIR, __dirname]) {
     if (!folder) continue;
     candidates.push((0, import_node_path.join)(folder, "web", "index.html"));
@@ -1388,13 +1387,29 @@ function webRoot() {
   for (const candidate of candidates) {
     if ((0, import_node_fs.existsSync)(candidate)) return candidate;
   }
-  return packaged;
+  return null;
+}
+function webVersionAt(page) {
+  const file = (0, import_node_path.join)((0, import_node_path.dirname)(page), "version.txt");
+  if ((0, import_node_fs.existsSync)(file)) {
+    const text = (0, import_node_fs.readFileSync)(file, "utf8").trim();
+    if (text !== "") return text;
+  }
+  return "0.0.0";
+}
+function webRoot() {
+  const downloaded = (0, import_node_path.join)(import_electron.app.getPath("userData"), "web", "index.html");
+  const shipped = shippedWeb();
+  if (!(0, import_node_fs.existsSync)(downloaded)) {
+    return shipped ?? (0, import_node_path.join)(process.resourcesPath, "web", "index.html");
+  }
+  if (!shipped) return downloaded;
+  return versionLessThan(webVersionAt(downloaded), webVersionAt(shipped)) ? shipped : downloaded;
 }
 function localWebVersion() {
-  const downloaded = (0, import_node_path.join)(import_electron.app.getPath("userData"), "web", "version.txt");
-  if ((0, import_node_fs.existsSync)(downloaded)) return (0, import_node_fs.readFileSync)(downloaded, "utf8").trim();
-  const shipped = (0, import_node_path.join)((0, import_node_path.dirname)(webRoot()), "version.txt");
-  if ((0, import_node_fs.existsSync)(shipped)) return (0, import_node_fs.readFileSync)(shipped, "utf8").trim();
+  const page = webRoot();
+  const file = (0, import_node_path.join)((0, import_node_path.dirname)(page), "version.txt");
+  if ((0, import_node_fs.existsSync)(file)) return (0, import_node_fs.readFileSync)(file, "utf8").trim();
   return APP_VERSION;
 }
 function markBrainVerified() {
