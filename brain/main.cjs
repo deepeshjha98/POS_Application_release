@@ -1359,7 +1359,7 @@ async function probeOnline(options = {}) {
 
 // electron/main.ts
 var APP_VERSION = true ? "0.2.0" : "0.0.0";
-var BRAIN_VERSION = true ? "0.2.1" : APP_VERSION;
+var BRAIN_VERSION = true ? "0.2.2" : APP_VERSION;
 var BRAIN_DIR = process.env.POS_BRAIN_DIR ?? __dirname;
 var UPDATE_BASE = process.env.POS_UPDATE_BASE ?? "https://raw.githubusercontent.com/deepeshjha98/POS_Application_release/main";
 function versionLessThan(a, b) {
@@ -1522,19 +1522,14 @@ async function fetchUpdateInfo() {
   if (!response.ok) throw new Error(`\u0928\u092F\u093E \u0930\u0942\u092A \u0926\u0947\u0916\u0928\u0947 \u092E\u0947\u0902 \u0926\u093F\u0915\u093C\u094D\u0915\u093C\u0924 (${response.status})`);
   return await response.json();
 }
+function part(current, latest) {
+  return { current, latest, hasUpdate: versionLessThan(current, latest) };
+}
 async function checkUpdate() {
   const info = await fetchUpdateInfo();
-  const web = {
-    current: localWebVersion(),
-    latest: info.web,
-    hasUpdate: info.web !== localWebVersion()
-  };
+  const web = part(localWebVersion(), info.web);
   const brainLatest = info.brain ?? BRAIN_VERSION;
-  const brain = {
-    current: BRAIN_VERSION,
-    latest: brainLatest,
-    hasUpdate: brainLatest !== BRAIN_VERSION
-  };
+  const brain = part(BRAIN_VERSION, brainLatest);
   return {
     web,
     brain,
@@ -1568,7 +1563,7 @@ async function applyUpdate() {
   const userData = import_electron.app.getPath("userData");
   let webApplied = false;
   let brainApplied = false;
-  if (info.web !== localWebVersion()) {
+  if (versionLessThan(localWebVersion(), info.web)) {
     const page = await downloadVerified("web/index.html");
     const folder = (0, import_node_path.join)(userData, "web");
     (0, import_node_fs.mkdirSync)(folder, { recursive: true });
@@ -1577,7 +1572,7 @@ async function applyUpdate() {
     webApplied = true;
   }
   const brainLatest = info.brain ?? BRAIN_VERSION;
-  if (brainLatest !== BRAIN_VERSION) {
+  if (versionLessThan(BRAIN_VERSION, brainLatest)) {
     const [mainJs, preloadJs] = await Promise.all([
       downloadVerified("brain/main.cjs"),
       downloadVerified("brain/preload.cjs")
