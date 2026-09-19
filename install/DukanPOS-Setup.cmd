@@ -49,12 +49,38 @@ if exist "%TARGET%\electron.exe" ren "%TARGET%\electron.exe" "Dukan POS.exe"
 
 :putapp
 echo   [3/3] app रख रहे हैं...
-if exist "%TARGET%\resources\app" rmdir /s /q "%TARGET%\resources\app"
+
+rem app अभी चल रहा हो तो उसकी फ़ाइलें बंद पड़ी रहती हैं — मिटाई नहीं जा सकतीं.
+rem अपडेट बटन से चलने पर app ख़ुद बंद हो रहा होता है, इसलिए थोड़ा इंतज़ार.
+set /a __tries=0
+:waitapp
+if not exist "%TARGET%\resources\app" goto :unpack
+rmdir /s /q "%TARGET%\resources\app" 2>nul
+if not exist "%TARGET%\resources\app" goto :unpack
+set /a __tries+=1
+if %__tries% geq 30 (
+  echo   [रुकिए] दुकान POS अभी खुला हुआ है. उसे बंद कर के दोबारा चलाइए.
+  echo.
+  pause
+  exit /b 1
+)
+timeout /t 1 /nobreak >nul
+goto :waitapp
+
+:unpack
 tar -xf "%~dp0dukan-app.zip" -C "%TARGET%\resources"
 if errorlevel 1 ( echo   [रुकिए] app रखने में दिक़्क़त हुई. & pause & exit /b 1 )
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$s=(New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Desktop')+'\दुकान POS.lnk'); $s.TargetPath='%TARGET%\Dukan POS.exe'; $s.WorkingDirectory='%TARGET%'; $s.Description='दुकान POS'; $s.Save()"
+
+rem अपडेट बटन से चला हो तो बिना कुछ पूछे सीधे app खोल दो
+if /i "%~1"=="/auto" (
+  echo.
+  echo   हो गया. दुकान POS खुल रहा है...
+  start "" "%TARGET%\Dukan POS.exe"
+  exit /b 0
+)
 
 echo.
 echo   ======================================
