@@ -8,7 +8,7 @@ set "EURL=https://github.com/electron/electron/releases/download/v44.4.3/electro
 
 echo.
 echo   ======================================
-echo     दुकान POS  —  पहली बार की तैयारी
+echo     दुकान POS  —  तैयारी
 echo   ======================================
 echo.
 
@@ -20,11 +20,17 @@ if not exist "%~dp0dukan-app.zip" (
   exit /b 1
 )
 
-echo   [1/4] पुरानी तैयारी हटा रहे हैं...
+rem Electron पहले से पड़ा हो तो दोबारा 110 MB उतारने की ज़रूरत नहीं —
+rem सिर्फ़ app का अंदरूनी हिस्सा बदलना है. दुकान में समय क़ीमती है.
+if exist "%TARGET%\Dukan POS.exe" (
+  echo   Electron पहले से मौजूद है — सिर्फ़ app बदल रहे हैं.
+  echo.
+  goto :putapp
+)
+
+echo   [1/3] Electron उतार रहे हैं (लगभग 110 MB, सिर्फ़ पहली बार)...
 if exist "%TARGET%" rmdir /s /q "%TARGET%"
 mkdir "%TARGET%" 2>nul
-
-echo   [2/4] Electron उतार रहे हैं (लगभग 110 MB, एक ही बार)...
 curl -L --fail --progress-bar -o "%TEMP%\dukan-electron.zip" "%EURL%"
 if errorlevel 1 (
   echo.
@@ -34,17 +40,19 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo   [3/4] खोल रहे हैं...
+echo   [2/3] खोल रहे हैं...
 tar -xf "%TEMP%\dukan-electron.zip" -C "%TARGET%"
 if errorlevel 1 ( echo   [रुकिए] खोलने में दिक़्क़त हुई. & pause & exit /b 1 )
 del "%TEMP%\dukan-electron.zip" 2>nul
 
+if exist "%TARGET%\electron.exe" ren "%TARGET%\electron.exe" "Dukan POS.exe"
+
+:putapp
+echo   [3/3] app रख रहे हैं...
+if exist "%TARGET%\resources\app" rmdir /s /q "%TARGET%\resources\app"
 tar -xf "%~dp0dukan-app.zip" -C "%TARGET%\resources"
 if errorlevel 1 ( echo   [रुकिए] app रखने में दिक़्क़त हुई. & pause & exit /b 1 )
 
-if exist "%TARGET%\electron.exe" ren "%TARGET%\electron.exe" "Dukan POS.exe"
-
-echo   [4/4] Desktop पर शॉर्टकट बना रहे हैं...
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$s=(New-Object -ComObject WScript.Shell).CreateShortcut([Environment]::GetFolderPath('Desktop')+'\दुकान POS.lnk'); $s.TargetPath='%TARGET%\Dukan POS.exe'; $s.WorkingDirectory='%TARGET%'; $s.Description='दुकान POS'; $s.Save()"
 
@@ -52,11 +60,11 @@ echo.
 echo   ======================================
 echo     हो गया.
 echo.
-echo     Desktop पर "दुकान POS" का शॉर्टकट बन गया है.
-echo     आपका सारा डेटा यहाँ रहेगा:
+echo     Desktop पर "दुकान POS" का शॉर्टकट है.
+echo     आपका सामान और श्रेणियाँ जस की तस हैं:
 echo     %APPDATA%\dukan-pos\pos.db
 echo   ======================================
 echo.
-echo   अभी चालू करने के लिए कोई भी कुंजी दबाइए...
+echo   चालू करने के लिए कोई भी कुंजी दबाइए...
 pause >nul
 start "" "%TARGET%\Dukan POS.exe"
