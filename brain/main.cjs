@@ -200,11 +200,48 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 CREATE INDEX IF NOT EXISTS ix_audit_entity ON audit_log (entity, entity_id, id);
 CREATE INDEX IF NOT EXISTS ix_audit_at     ON audit_log (at);
+
+-- \u0926\u0941\u0915\u093E\u0928\u0926\u093E\u0930 \u0915\u093E \u0905\u092A\u0928\u093E \u0936\u092C\u094D\u0926\u0915\u094B\u0936.
+--
+-- 'apna' = \u0916\u093C\u0941\u0926 \u091C\u094B\u0921\u093C\u093E \u0939\u0941\u0906, 'chuna' = \u0938\u0941\u091D\u093E\u0935\u094B\u0902 \u092E\u0947\u0902 \u0938\u0947 \u091C\u094B \u091B\u0941\u0906 \u0935\u094B \u0905\u092A\u0928\u0947 \u0906\u092A \u092F\u093E\u0926 \u0930\u0939\u093E.
+-- \u090F\u0915 \u0939\u0940 \u0930\u094B\u092E\u0928 \u0936\u092C\u094D\u0926 \u0915\u0947 \u0915\u0908 \u0939\u093F\u0902\u0926\u0940 \u0930\u0942\u092A \u0939\u094B \u0938\u0915\u0924\u0947 \u0939\u0948\u0902, \u0907\u0938\u0932\u093F\u090F \u0915\u0941\u0902\u091C\u0940 \u0926\u094B\u0928\u094B\u0902 \u092E\u093F\u0932\u093E \u0915\u0930 \u092C\u0928\u0924\u0940 \u0939\u0948.
+CREATE TABLE IF NOT EXISTS word (
+  roman      TEXT NOT NULL,
+  hindi      TEXT NOT NULL,
+  source     TEXT NOT NULL CHECK (source IN ('apna', 'chuna')),
+  uses       INTEGER NOT NULL DEFAULT 1 CHECK (uses > 0),
+  created_at TEXT NOT NULL,
+  used_at    TEXT NOT NULL,
+  PRIMARY KEY (roman, hindi)
+);
+
+CREATE INDEX IF NOT EXISTS ix_word_roman ON word (roman, uses DESC);
 `;
 
 // src/data/db.ts
-var SCHEMA_VERSION = 2;
+var SCHEMA_VERSION = 3;
 var UPGRADES = {
+  /**
+   * 2 -> 3 : दुकानदार का अपना शब्दकोश.
+   *
+   * सिर्फ़ एक नई तालिका जुड़ी है, पुराने किसी डेटा को हाथ नहीं लगता.
+   * नीचे वैसे भी पूरा schema दोबारा चलता है (सब CREATE ... IF NOT EXISTS),
+   * पर चढ़ाई का हर क़दम साफ़ लिखा होना चाहिए — इसलिए यहाँ भी.
+   */
+  2: (db2) => {
+    db2.exec(`
+      CREATE TABLE IF NOT EXISTS word (
+        roman      TEXT NOT NULL,
+        hindi      TEXT NOT NULL,
+        source     TEXT NOT NULL CHECK (source IN ('apna', 'chuna')),
+        uses       INTEGER NOT NULL DEFAULT 1 CHECK (uses > 0),
+        created_at TEXT NOT NULL,
+        used_at    TEXT NOT NULL,
+        PRIMARY KEY (roman, hindi)
+      );
+      CREATE INDEX IF NOT EXISTS ix_word_roman ON word (roman, uses DESC);
+    `);
+  },
   /**
    * 1 -> 2 : श्रेणी ज़रूरी हुई, और "सुपर" का निशान जुड़ा.
    *
@@ -1261,6 +1298,120 @@ var CategoryRepo = class {
   }
 };
 
+// src/core/wordbook.ts
+var WORD_MAX = 40;
+function normalizeRoman(roman) {
+  return roman.trim().toLowerCase();
+}
+function hasDevanagari(text) {
+  return /[ऀ-ॿ]/.test(text);
+}
+function validateWord(roman, hindi) {
+  const issues = [];
+  const key = normalizeRoman(roman);
+  const value = hindi.trim();
+  if (key === "") {
+    issues.push({ field: "roman", message: "\u0905\u0902\u0917\u094D\u0930\u0947\u091C\u093C\u0940 \u0935\u093E\u0932\u093E \u0936\u092C\u094D\u0926 \u0916\u093C\u093E\u0932\u0940 \u0939\u0948" });
+  } else if (!/^[a-z][a-z0-9]*$/.test(key)) {
+    issues.push({ field: "roman", message: "\u0905\u0902\u0917\u094D\u0930\u0947\u091C\u093C\u0940 \u0935\u093E\u0932\u0947 \u0936\u092C\u094D\u0926 \u092E\u0947\u0902 \u0938\u093F\u0930\u094D\u092B\u093C \u0905\u0915\u094D\u0937\u0930 \u0914\u0930 \u0905\u0902\u0915 \u091A\u0932\u0947\u0902\u0917\u0947" });
+  } else if (key.length > WORD_MAX) {
+    issues.push({ field: "roman", message: `${WORD_MAX} \u0905\u0915\u094D\u0937\u0930 \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0928\u0939\u0940\u0902` });
+  }
+  if (value === "") {
+    issues.push({ field: "hindi", message: "\u0939\u093F\u0902\u0926\u0940 \u0935\u093E\u0932\u093E \u0936\u092C\u094D\u0926 \u0916\u093C\u093E\u0932\u0940 \u0939\u0948" });
+  } else if (!hasDevanagari(value)) {
+    issues.push({ field: "hindi", message: "\u0907\u0938\u092E\u0947\u0902 \u0939\u093F\u0902\u0926\u0940 \u0915\u093E \u0915\u094B\u0908 \u0905\u0915\u094D\u0937\u0930 \u0928\u0939\u0940\u0902 \u0939\u0948" });
+  } else if (value.length > WORD_MAX) {
+    issues.push({ field: "hindi", message: `${WORD_MAX} \u0905\u0915\u094D\u0937\u0930 \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0928\u0939\u0940\u0902` });
+  } else if (/\s/.test(value)) {
+    issues.push({ field: "hindi", message: "\u090F\u0915 \u092C\u093E\u0930 \u092E\u0947\u0902 \u090F\u0915 \u0939\u0940 \u0936\u092C\u094D\u0926 \u091C\u094B\u0921\u093C\u093F\u090F" });
+  }
+  return issues;
+}
+function rankEntries(entries) {
+  return [...entries].sort((a, b) => {
+    if (a.source !== b.source) return a.source === "apna" ? -1 : 1;
+    if (a.uses !== b.uses) return b.uses - a.uses;
+    if (a.usedAt !== b.usedAt) return a.usedAt < b.usedAt ? 1 : -1;
+    return a.hindi < b.hindi ? -1 : a.hindi > b.hindi ? 1 : 0;
+  });
+}
+
+// src/data/wordRepo.ts
+function rowToEntry(row) {
+  return {
+    roman: row.roman,
+    hindi: row.hindi,
+    source: row.source === "apna" ? "apna" : "chuna",
+    uses: row.uses,
+    createdAt: row.created_at,
+    usedAt: row.used_at
+  };
+}
+var WordRepo = class {
+  constructor(db2) {
+    this.db = db2;
+  }
+  /** इस रोमन शब्द के सारे रूप, सही क्रम में. */
+  for(roman) {
+    const key = normalizeRoman(roman);
+    if (key === "") return [];
+    const rows = this.db.prepare("SELECT roman, hindi, source, uses, created_at, used_at FROM word WHERE roman = ?").all(key);
+    return rankEntries(rows.map(rowToEntry));
+  }
+  /** पूरा शब्दकोश — दिखाने और जाँच के लिए. */
+  all() {
+    const rows = this.db.prepare("SELECT roman, hindi, source, uses, created_at, used_at FROM word ORDER BY roman").all();
+    return rows.map(rowToEntry);
+  }
+  count() {
+    const row = this.db.prepare("SELECT COUNT(*) AS n FROM word").get();
+    return row.n;
+  }
+  /**
+   * शब्द याद कर लो.
+   *
+   * पहले से हो तो गिनती एक बढ़ती है. और अगर वो पहले सिर्फ़ "चुना हुआ" था
+   * और अब दुकानदार ने ख़ुद सिखाया है, तो वो "अपना" बन जाता है — पीछे
+   * कभी नहीं जाता, क्योंकि ख़ुद सिखाया हुआ ज़्यादा भरोसे का है.
+   */
+  learn(roman, hindi, source) {
+    const issues = validateWord(roman, hindi);
+    if (issues.length > 0) return { ok: false, issues };
+    const key = normalizeRoman(roman);
+    const value = hindi.trim();
+    const now = nowIso();
+    this.db.transaction(() => {
+      const existing = this.db.prepare("SELECT source, uses FROM word WHERE roman = ? AND hindi = ?").get(key, value);
+      if (!existing) {
+        this.db.prepare(
+          `INSERT INTO word (roman, hindi, source, uses, created_at, used_at)
+             VALUES (?, ?, ?, 1, ?, ?)`
+        ).run(key, value, source, now, now);
+        return;
+      }
+      const next = existing.source === "apna" || source === "apna" ? "apna" : "chuna";
+      this.db.prepare("UPDATE word SET source = ?, uses = uses + 1, used_at = ? WHERE roman = ? AND hindi = ?").run(next, now, key, value);
+    })();
+    return { ok: true, words: this.for(key) };
+  }
+  /**
+   * ग़लत जमा हुआ शब्द हटाओ.
+   *
+   * ये होना ज़रूरी है: एक बार ग़लत शब्द ऊपर चढ़ गया तो वो हर बार सामने
+   * आएगा और जल्दबाज़ी में वही चुना जाएगा. निकलने का रास्ता खुला रहना चाहिए.
+   */
+  forget(roman, hindi) {
+    const key = normalizeRoman(roman);
+    const value = hindi.trim();
+    const before = this.db.prepare("SELECT 1 AS hit FROM word WHERE roman = ? AND hindi = ?").get(key, value);
+    if (before) {
+      this.db.prepare("DELETE FROM word WHERE roman = ? AND hindi = ?").run(key, value);
+    }
+    return { removed: before !== void 0, words: this.for(key) };
+  }
+};
+
 // src/core/translitOnline.ts
 var ENDPOINT = globalThis.process?.env?.POS_TRANSLIT_ENDPOINT ?? "https://inputtools.google.com/request";
 var ONLINE_TIMEOUT_MS = 900;
@@ -1341,11 +1492,11 @@ async function probeOnline(options = {}) {
     if (!response.ok) {
       return { ok: false, detail: `Google \u0928\u0947 ${response.status} \u0932\u094C\u091F\u093E\u092F\u093E` };
     }
-    const words = parseGoogleResponse(await response.json());
-    if (words.length === 0) {
+    const words2 = parseGoogleResponse(await response.json());
+    if (words2.length === 0) {
       return { ok: false, detail: "Google \u0924\u0915 \u092A\u0939\u0941\u0901\u091A \u0924\u094B \u0917\u090F, \u092A\u0930 \u0915\u094B\u0908 \u0938\u0941\u091D\u093E\u0935 \u0928\u0939\u0940\u0902 \u0906\u092F\u093E" };
     }
-    return { ok: true, detail: "Google \u0938\u0947 \u091C\u0935\u093E\u092C \u0906 \u0917\u092F\u093E", sample: words };
+    return { ok: true, detail: "Google \u0938\u0947 \u091C\u0935\u093E\u092C \u0906 \u0917\u092F\u093E", sample: words2 };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (/abort/i.test(message)) {
@@ -1359,7 +1510,7 @@ async function probeOnline(options = {}) {
 
 // electron/main.ts
 var APP_VERSION = true ? "0.2.0" : "0.0.0";
-var BRAIN_VERSION = true ? "0.2.2" : APP_VERSION;
+var BRAIN_VERSION = true ? "0.3.0" : APP_VERSION;
 var BRAIN_DIR = process.env.POS_BRAIN_DIR ?? __dirname;
 var UPDATE_BASE = process.env.POS_UPDATE_BASE ?? "https://raw.githubusercontent.com/deepeshjha98/POS_Application_release/main";
 function versionLessThan(a, b) {
@@ -1375,6 +1526,7 @@ function versionLessThan(a, b) {
 var db;
 var products;
 var categories;
+var words;
 var mainWindow = null;
 function shippedWeb() {
   const candidates = [];
@@ -1462,6 +1614,7 @@ var METHODS = {
     ok: true,
     productCount: products.count(),
     categoryCount: categories.list().length,
+    wordCount: words.count(),
     db: (0, import_node_path.join)(import_electron.app.getPath("userData"), "pos.db"),
     appVersion: APP_VERSION,
     webVersion: localWebVersion(),
@@ -1513,6 +1666,10 @@ var METHODS = {
   translitOnline: ([roman]) => fetchOnlineSuggestions(String(roman ?? "")),
   /** दुकानदार ख़ुद जाँच सके कि Google वाला हिस्सा चल रहा है या नहीं. */
   translitCheck: () => probeOnline(),
+  // ---- दुकानदार का अपना शब्दकोश ----
+  words: ([roman]) => ({ words: words.for(String(roman ?? "")) }),
+  learnWord: ([roman, hindi, source]) => words.learn(String(roman ?? ""), String(hindi ?? ""), source === "apna" ? "apna" : "chuna"),
+  forgetWord: ([roman, hindi]) => words.forget(String(roman ?? ""), String(hindi ?? "")),
   createCategory: ([draft]) => categories.create(draft),
   updateCategory: ([id, draft]) => categories.update(String(id), draft),
   setCategoryActive: ([id, isActive]) => categories.setActive(String(id), isActive === true)
@@ -1646,6 +1803,7 @@ ${message}`);
   }
   products = new ProductRepo(db);
   categories = new CategoryRepo(db);
+  words = new WordRepo(db);
   import_electron.ipcMain.handle("pos:call", (_event, method, args) => {
     const handler = METHODS[method];
     if (!handler) throw new Error(`\u0905\u0928\u091C\u093E\u0928 \u0915\u093E\u092E: ${method}`);
