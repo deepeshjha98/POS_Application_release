@@ -1510,7 +1510,7 @@ async function probeOnline(options = {}) {
 
 // electron/main.ts
 var APP_VERSION = true ? "0.3.0" : "0.0.0";
-var BRAIN_VERSION = true ? "0.5.0" : APP_VERSION;
+var BRAIN_VERSION = true ? "0.6.0" : APP_VERSION;
 var BRAIN_DIR = process.env.POS_BRAIN_DIR ?? __dirname;
 var UPDATE_BASE = process.env.POS_UPDATE_BASE ?? "https://raw.githubusercontent.com/deepeshjha98/POS_Application_release/main";
 function versionLessThan(a, b) {
@@ -1596,6 +1596,27 @@ function shortcutIcon() {
   const best = appIcon();
   return best && best.endsWith(".ico") ? best : null;
 }
+async function settleIcon(force = false) {
+  const userData = import_electron.app.getPath("userData");
+  const file = (0, import_node_path.join)(userData, "icon.ico");
+  const stamp = (0, import_node_path.join)(userData, "icon.stamp");
+  try {
+    if (!force && (0, import_node_fs.existsSync)(stamp) && (0, import_node_fs.readFileSync)(stamp, "utf8").trim() === BRAIN_VERSION && (0, import_node_fs.existsSync)(file)) {
+      return false;
+    }
+  } catch {
+  }
+  const want = (await (await fetch(`${UPDATE_BASE}/icon/icon.ico.sha256`, { cache: "no-store" })).text()).trim().split(/\s+/)[0];
+  if (!want || !/^[0-9a-f]{64}$/.test(want)) throw new Error("\u0906\u0907\u0915\u0949\u0928 \u0915\u093E \u091C\u094B\u0921\u093C \u0938\u092E\u091D \u0928\u0939\u0940\u0902 \u0906\u092F\u093E");
+  const have = (0, import_node_fs.existsSync)(file) ? (0, import_node_crypto.createHash)("sha256").update((0, import_node_fs.readFileSync)(file)).digest("hex") : "";
+  let changed = false;
+  if (have !== want) {
+    (0, import_node_fs.writeFileSync)(file, await downloadVerified("icon/icon.ico"));
+    changed = true;
+  }
+  (0, import_node_fs.writeFileSync)(stamp, BRAIN_VERSION, "utf8");
+  return changed;
+}
 function shortcutPlaces() {
   return [
     (0, import_node_path.join)(import_electron.app.getPath("desktop"), "\u0926\u0941\u0915\u093E\u0928 POS.lnk"),
@@ -1627,7 +1648,13 @@ function ensureShortcuts(force = false) {
         continue;
       }
       (0, import_node_fs.mkdirSync)((0, import_node_path.dirname)(target), { recursive: true });
-      const done = import_electron.shell.writeShortcutLink(target, there ? "update" : "create", {
+      if (there) {
+        try {
+          (0, import_node_fs.rmSync)(target, { force: true });
+        } catch {
+        }
+      }
+      const done = import_electron.shell.writeShortcutLink(target, "create", {
         target: process.execPath,
         cwd: (0, import_node_path.dirname)(process.execPath),
         description: "\u0926\u0941\u0915\u093E\u0928 POS \u2014 \u0926\u0941\u0915\u093E\u0928 \u0915\u093E \u0939\u093F\u0938\u093E\u092C",
@@ -1921,16 +1948,39 @@ ${message}`);
     if (mainWindow) void mainWindow.loadFile(webRoot());
   });
   import_electron.ipcMain.handle("pos:open-data-folder", () => import_electron.shell.openPath(import_electron.app.getPath("userData")));
-  import_electron.ipcMain.handle("pos:make-shortcut", () => ensureShortcuts(true));
-  createWindow();
-  try {
-    const shortcut = ensureShortcuts();
-    if (!shortcut.ok && shortcut.made.length === 0) {
-      console.warn("[pos] \u0936\u0949\u0930\u094D\u091F\u0915\u091F \u0928\u0939\u0940\u0902 \u092C\u0928\u093E:", shortcut.reason);
+  import_electron.ipcMain.handle("pos:make-shortcut", async () => {
+    try {
+      await settleIcon(true);
+    } catch {
     }
-  } catch (error) {
-    console.warn("[pos] \u0936\u0949\u0930\u094D\u091F\u0915\u091F \u092C\u0928\u093E\u0924\u0947 \u0938\u092E\u092F \u0917\u0921\u093C\u092C\u0921\u093C:", error);
-  }
+    return ensureShortcuts(true);
+  });
+  createWindow();
+  void (async () => {
+    let fresh = false;
+    try {
+      fresh = await settleIcon();
+    } catch (error) {
+      console.warn("[pos] \u0906\u0907\u0915\u0949\u0928 \u0928\u0939\u0940\u0902 \u0906 \u092A\u093E\u092F\u093E:", error);
+    }
+    if (fresh && process.platform === "win32") {
+      const icon = appIcon();
+      if (icon && mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          mainWindow.setIcon(icon);
+        } catch {
+        }
+      }
+    }
+    try {
+      const shortcut = ensureShortcuts();
+      if (!shortcut.ok && shortcut.made.length === 0) {
+        console.warn("[pos] \u0936\u0949\u0930\u094D\u091F\u0915\u091F \u0928\u0939\u0940\u0902 \u092C\u0928\u093E:", shortcut.reason);
+      }
+    } catch (error) {
+      console.warn("[pos] \u0936\u0949\u0930\u094D\u091F\u0915\u091F \u092C\u0928\u093E\u0924\u0947 \u0938\u092E\u092F \u0917\u0921\u093C\u092C\u0921\u093C:", error);
+    }
+  })();
   import_electron.app.on("activate", () => {
     if (import_electron.BrowserWindow.getAllWindows().length === 0) createWindow();
   });
