@@ -176,6 +176,57 @@ CREATE INDEX IF NOT EXISTS ix_product_active    ON product (is_active, name);
 CREATE INDEX IF NOT EXISTS ix_product_category  ON product (category_id, name);
 CREATE INDEX IF NOT EXISTS ix_product_super     ON product (in_super, name) WHERE in_super = 1;
 
+-- \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u2014 \u0938\u093E\u092E\u093E\u0928 \u0915\u0947 \u0928\u0940\u091A\u0947 \u0915\u093E \u092A\u0947\u0921\u093C.
+--
+-- \u0926\u0941\u0915\u093E\u0928\u0926\u093E\u0930 \u0915\u093E \u0928\u093F\u092F\u092E: \u0938\u093E\u092E\u093E\u0928 \u0915\u093E \u0924\u094B \u092C\u0938 \u0928\u093E\u092E \u0939\u094B\u0924\u093E \u0939\u0948, \u092C\u093F\u0915\u0924\u093E \u0909\u0938\u0915\u093E \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u0939\u0948.
+-- \u0914\u0930 \u0915\u093F\u0938\u0940 \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u0915\u0947 \u0928\u0940\u091A\u0947 \u092D\u0940 \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u0939\u094B \u0938\u0915\u0924\u0947 \u0939\u0948\u0902 \u2014 \u0924\u092C \u0909\u0938\u0915\u093E \u0905\u092A\u0928\u093E \u0915\u094B\u0908
+-- \u092C\u094D\u092F\u094C\u0930\u093E \u0928\u0939\u0940\u0902 \u0939\u094B\u0924\u093E, \u0909\u0938\u0915\u0947 \u092C\u091A\u094D\u091A\u094B\u0902 \u0915\u093E \u0939\u094B\u0924\u093E \u0939\u0948.
+--
+--   \u092E\u0941\u0921\u093C\u0939\u0940                    \u2190 \u0938\u093E\u092E\u093E\u0928, \u0938\u093F\u0930\u094D\u092B\u093C \u0928\u093E\u092E
+--    +- \u0932\u0942\u0938                   \u2190 \u092A\u0924\u094D\u0924\u093E, \u092C\u094D\u092F\u094C\u0930\u093E \u092F\u0939\u093E\u0901
+--    +- \u092A\u093E\u0909\u091A                  \u2190 \u0928\u0940\u091A\u0947 \u0915\u0941\u091B \u0939\u0948, \u0907\u0938\u0932\u093F\u090F \u0938\u093F\u0930\u094D\u092B\u093C \u0928\u093E\u092E
+--        +- \u0916\u0941\u0932\u093E \u092A\u093E\u0909\u091A          \u2190 \u092A\u0924\u094D\u0924\u093E
+--        +- \u092C\u0948\u0917 (N \u092A\u093E\u0909\u091A)       \u2190 \u092A\u0924\u094D\u0924\u093E
+--
+-- \u092F\u093E\u0928\u0940: \u092C\u094D\u092F\u094C\u0930\u093E \u0938\u093F\u0930\u094D\u092B\u093C \u092A\u0924\u094D\u0924\u0947 \u092A\u0930, \u0914\u0930 \u092C\u093F\u0915\u0924\u093E \u0938\u093F\u0930\u094D\u092B\u093C \u092A\u0924\u094D\u0924\u093E \u0939\u0948.
+--
+-- \u0905\u092D\u0940 \u092F\u0939\u093E\u0901 \u0938\u093F\u0930\u094D\u092B\u093C \u092A\u0947\u0921\u093C \u0939\u0948 \u2014 \u0928\u093E\u092E, \u0930\u093F\u0936\u094D\u0924\u093E, \u0915\u094D\u0930\u092E. \u0926\u093E\u092E-\u0924\u094C\u0932 \u0935\u093E\u0932\u0947 \u0916\u093E\u0928\u0947 \u0909\u0938\u0940 \u0935\u0915\u093C\u094D\u0924
+-- \u091C\u0941\u0921\u093C\u0947\u0902\u0917\u0947 \u091C\u092C \u0909\u0928\u094D\u0939\u0947\u0902 \u092D\u0930\u0928\u0947 \u0935\u093E\u0932\u093E \u092A\u0930\u094D\u0926\u093E \u092C\u0928\u0947\u0917\u093E, \u0924\u093E\u0915\u093F \u0926\u0941\u0915\u093E\u0928 \u0915\u093E \u0926\u093E\u092E \u0915\u0941\u091B \u0938\u092E\u092F \u0915\u0947
+-- \u0932\u093F\u090F \u092D\u0940 \u0926\u094B \u091C\u0917\u0939 \u092A\u0921\u093C\u093E \u0928 \u0930\u0939\u0947.
+CREATE TABLE IF NOT EXISTS variant (
+  id          TEXT PRIMARY KEY,
+  product_id  TEXT NOT NULL REFERENCES product (id) ON DELETE CASCADE,
+
+  -- \u0915\u093F\u0938\u0915\u0947 \u0928\u0940\u091A\u0947. NULL = \u0938\u0940\u0927\u0947 \u0938\u093E\u092E\u093E\u0928 \u0915\u0947 \u0928\u0940\u091A\u0947.
+  -- \u0905\u092A\u0928\u0947 \u0939\u0940 \u0938\u093E\u092E\u093E\u0928 \u0915\u0947 \u0915\u093F\u0938\u0940 \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u0915\u0947 \u0928\u0940\u091A\u0947 \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F \u2014 \u0935\u094B \u091C\u093E\u0901\u091A code \u092E\u0947\u0902 \u0939\u0948,
+  -- \u0915\u094D\u092F\u094B\u0902\u0915\u093F SQLite \u0915\u0940 CHECK \u0926\u0942\u0938\u0930\u0940 \u092A\u0902\u0915\u094D\u0924\u093F \u0928\u0939\u0940\u0902 \u092A\u0922\u093C \u0938\u0915\u0924\u0940.
+  parent_id   TEXT REFERENCES variant (id) ON DELETE CASCADE,
+
+  name        TEXT NOT NULL CHECK (length(trim(name)) > 0 AND length(name) <= 40),
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+
+  is_active   INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL,
+
+  -- \u0915\u094B\u0908 \u0916\u093C\u0941\u0926 \u0915\u0947 \u0928\u0940\u091A\u0947 \u0928\u0939\u0940\u0902 \u091C\u093E \u0938\u0915\u0924\u093E. \u0932\u0902\u092C\u093E \u0917\u094B\u0932 \u091A\u0915\u094D\u0915\u0930 code \u0930\u094B\u0915\u0924\u093E \u0939\u0948.
+  CHECK (parent_id IS NULL OR parent_id <> id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_variant_product ON variant (product_id, sort_order, name);
+CREATE INDEX IF NOT EXISTS ix_variant_parent  ON variant (parent_id);
+
+-- \u090F\u0915 \u0939\u0940 \u0928\u093E\u092E \u0915\u0947 \u0926\u094B \u092D\u093E\u0908 \u0928 \u0939\u094B\u0902. \u092F\u0939\u093E\u0901 \u0926\u094B index \u0939\u0948\u0902 \u0915\u094D\u092F\u094B\u0902\u0915\u093F SQLite \u092E\u0947\u0902
+-- NULL \u0915\u093F\u0938\u0940 \u0915\u0947 \u092C\u0930\u093E\u092C\u0930 \u0928\u0939\u0940\u0902 \u0939\u094B\u0924\u093E \u2014 \u0907\u0938\u0932\u093F\u090F "\u0938\u0940\u0927\u0947 \u0938\u093E\u092E\u093E\u0928 \u0915\u0947 \u0928\u0940\u091A\u0947" \u0935\u093E\u0932\u0947 \u0914\u0930
+-- "\u0915\u093F\u0938\u0940 \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u0915\u0947 \u0928\u0940\u091A\u0947" \u0935\u093E\u0932\u0947, \u0926\u094B\u0928\u094B\u0902 \u0915\u094B \u0905\u0932\u0917-\u0905\u0932\u0917 \u092C\u093E\u0901\u0927\u0928\u093E \u092A\u0921\u093C\u0924\u093E \u0939\u0948.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_variant_name_root
+  ON variant (product_id, lower(trim(name)))
+  WHERE parent_id IS NULL AND is_active = 1;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_variant_name_child
+  ON variant (parent_id, lower(trim(name)))
+  WHERE parent_id IS NOT NULL AND is_active = 1;
+
 -- \u092C\u093E\u0930\u0915\u094B\u0921 \u2014 \u090F\u0915 \u0938\u093E\u092E\u093E\u0928 \u0915\u0947 \u0915\u0908 \u0939\u094B \u0938\u0915\u0924\u0947 \u0939\u0948\u0902, \u092A\u0930 \u090F\u0915 \u092C\u093E\u0930\u0915\u094B\u0921 \u0938\u093F\u0930\u094D\u092B\u093C \u090F\u0915 \u0938\u093E\u092E\u093E\u0928 \u0915\u093E.
 -- barcode \u0915\u093E PRIMARY KEY \u0939\u094B\u0928\u093E \u0939\u0940 \u0935\u094B \u0924\u093E\u0932\u093E \u0939\u0948 \u091C\u094B \u0926\u094B \u0938\u093E\u092E\u093E\u0928 \u092A\u0930 \u090F\u0915 \u092C\u093E\u0930\u0915\u094B\u0921 \u0928\u0939\u0940\u0902 \u0932\u0917\u0928\u0947 \u0926\u0947\u0924\u093E.
 CREATE TABLE IF NOT EXISTS product_barcode (
@@ -219,7 +270,7 @@ CREATE INDEX IF NOT EXISTS ix_word_roman ON word (roman, uses DESC);
 `;
 
 // src/data/db.ts
-var SCHEMA_VERSION = 3;
+var SCHEMA_VERSION = 4;
 var UPGRADES = {
   /**
    * 2 -> 3 : दुकानदार का अपना शब्दकोश.
@@ -228,6 +279,36 @@ var UPGRADES = {
    * नीचे वैसे भी पूरा schema दोबारा चलता है (सब CREATE ... IF NOT EXISTS),
    * पर चढ़ाई का हर क़दम साफ़ लिखा होना चाहिए — इसलिए यहाँ भी.
    */
+  /**
+   * 3 -> 4 : वेरिएंट का पेड़.
+   *
+   * सिर्फ़ एक नई तालिका. पुराने सामान, दाम, बारकोड — किसी को हाथ नहीं लगता.
+   * हर सामान का पेड़ अभी ख़ाली रहेगा; भरना मॉड्यूल 3 में शुरू होगा, उसी
+   * पर्दे के साथ जो उसे भरेगा.
+   */
+  3: (db2) => {
+    db2.exec(`
+      CREATE TABLE IF NOT EXISTS variant (
+        id          TEXT PRIMARY KEY,
+        product_id  TEXT NOT NULL REFERENCES product (id) ON DELETE CASCADE,
+        parent_id   TEXT REFERENCES variant (id) ON DELETE CASCADE,
+        name        TEXT NOT NULL CHECK (length(trim(name)) > 0 AND length(name) <= 40),
+        sort_order  INTEGER NOT NULL DEFAULT 0,
+        is_active   INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+        created_at  TEXT NOT NULL,
+        updated_at  TEXT NOT NULL,
+        CHECK (parent_id IS NULL OR parent_id <> id)
+      );
+      CREATE INDEX IF NOT EXISTS ix_variant_product ON variant (product_id, sort_order, name);
+      CREATE INDEX IF NOT EXISTS ix_variant_parent  ON variant (parent_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS ux_variant_name_root
+        ON variant (product_id, lower(trim(name)))
+        WHERE parent_id IS NULL AND is_active = 1;
+      CREATE UNIQUE INDEX IF NOT EXISTS ux_variant_name_child
+        ON variant (parent_id, lower(trim(name)))
+        WHERE parent_id IS NOT NULL AND is_active = 1;
+    `);
+  },
   2: (db2) => {
     db2.exec(`
       CREATE TABLE IF NOT EXISTS word (
@@ -325,6 +406,10 @@ function migrate(db2) {
   const schema = SCHEMA_SQL;
   db2.pragma("foreign_keys = OFF");
   const from = readCurrentVersion(db2);
+  if (from > SCHEMA_VERSION) {
+    db2.pragma("foreign_keys = ON");
+    return { from, to: from };
+  }
   const run = db2.transaction(() => {
     if (from === 0) {
       db2.exec(schema);
@@ -1412,6 +1497,273 @@ var WordRepo = class {
   }
 };
 
+// src/domain/variant.ts
+var MAX_VARIANT_DEPTH = 5;
+var MAX_VARIANT_NAME = 40;
+function buildTree(rows) {
+  const byId = /* @__PURE__ */ new Map();
+  for (const row of rows) byId.set(row.id, row);
+  const childrenOf = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const parent = row.parentId !== null && byId.has(row.parentId) ? row.parentId : null;
+    const list = childrenOf.get(parent);
+    if (list) list.push(row);
+    else childrenOf.set(parent, [row]);
+  }
+  const order = (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "hi");
+  const seen = /* @__PURE__ */ new Set();
+  const grow = (parentId, depth) => (childrenOf.get(parentId) ?? []).slice().sort(order).filter((row) => {
+    if (seen.has(row.id)) return false;
+    seen.add(row.id);
+    return true;
+  }).map((row) => ({ ...row, depth, children: grow(row.id, depth + 1) }));
+  return grow(null, 1);
+}
+function flatten(nodes) {
+  const out = [];
+  const walk = (list) => {
+    for (const node of list) {
+      out.push(node);
+      walk(node.children);
+    }
+  };
+  walk(nodes);
+  return out;
+}
+function findNode(nodes, id) {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    const inside = findNode(node.children, id);
+    if (inside) return inside;
+  }
+  return null;
+}
+function descendantsOf(node) {
+  return flatten(node.children);
+}
+function normalizeVariantName(name) {
+  return name.trim().replace(/\s+/g, " ");
+}
+function variantNameKey(name) {
+  return normalizeVariantName(name).toLowerCase();
+}
+function validateVariant(draft, context) {
+  const issues = [];
+  const name = normalizeVariantName(draft.name);
+  if (name.length === 0) {
+    issues.push({ field: "name", level: "error", message: "\u0928\u093E\u092E \u092D\u0930\u093F\u090F" });
+  } else if (name.length > MAX_VARIANT_NAME) {
+    issues.push({
+      field: "name",
+      level: "error",
+      message: `\u0928\u093E\u092E ${MAX_VARIANT_NAME} \u0905\u0915\u094D\u0937\u0930 \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0932\u0902\u092C\u093E \u0928 \u0939\u094B`
+    });
+  }
+  let parent = null;
+  if (draft.parentId !== null) {
+    parent = findNode(context.tree, draft.parentId);
+    if (!parent) {
+      issues.push({ field: "parent", level: "error", message: "\u091C\u093F\u0938\u0915\u0947 \u0928\u0940\u091A\u0947 \u0930\u0916\u0928\u093E \u0939\u0948 \u0935\u094B \u092E\u093F\u0932\u093E \u0939\u0940 \u0928\u0939\u0940\u0902" });
+    } else if (parent.productId !== draft.productId) {
+      issues.push({
+        field: "parent",
+        level: "error",
+        message: "\u0926\u0942\u0938\u0930\u0947 \u0938\u093E\u092E\u093E\u0928 \u0915\u0947 \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u0915\u0947 \u0928\u0940\u091A\u0947 \u0928\u0939\u0940\u0902 \u0930\u0916\u093E \u091C\u093E \u0938\u0915\u0924\u093E"
+      });
+    }
+  }
+  if (context.editingId !== void 0 && parent) {
+    if (parent.id === context.editingId) {
+      issues.push({ field: "parent", level: "error", message: "\u0915\u094B\u0908 \u091A\u0940\u091C\u093C \u0916\u093C\u0941\u0926 \u0915\u0947 \u0928\u0940\u091A\u0947 \u0928\u0939\u0940\u0902 \u0930\u0916\u0940 \u091C\u093E \u0938\u0915\u0924\u0940" });
+    } else {
+      const self = findNode(context.tree, context.editingId);
+      if (self && descendantsOf(self).some((node) => node.id === parent.id)) {
+        issues.push({
+          field: "parent",
+          level: "error",
+          message: "\u092F\u0947 \u0909\u0938\u0940 \u0915\u0947 \u0928\u0940\u091A\u0947 \u0935\u093E\u0932\u0940 \u091A\u0940\u091C\u093C \u0939\u0948 \u2014 \u0907\u0938\u0915\u0947 \u0928\u0940\u091A\u0947 \u0928\u0939\u0940\u0902 \u091C\u093E \u0938\u0915\u0924\u093E"
+        });
+      }
+    }
+  }
+  if (parent && parent.depth + 1 > MAX_VARIANT_DEPTH) {
+    issues.push({
+      field: "parent",
+      level: "error",
+      message: `\u0907\u0924\u0928\u093E \u0905\u0902\u0926\u0930 \u0928\u0939\u0940\u0902 \u091C\u093E \u0938\u0915\u0924\u093E \u2014 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E ${MAX_VARIANT_DEPTH} \u0938\u094D\u0924\u0930`
+    });
+  }
+  const siblings = draft.parentId === null ? context.tree : parent?.children ?? [];
+  const key = variantNameKey(name);
+  const clash = siblings.some(
+    (node) => node.id !== context.editingId && node.isActive && variantNameKey(node.name) === key
+  );
+  if (clash) {
+    issues.push({
+      field: "name",
+      level: "error",
+      message: "\u0907\u0938\u0940 \u0928\u093E\u092E \u0915\u093E \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u092F\u0939\u093E\u0901 \u092A\u0939\u0932\u0947 \u0938\u0947 \u0939\u0948"
+    });
+  }
+  return issues;
+}
+
+// src/data/variantRepo.ts
+function rowToVariant(row) {
+  return {
+    id: row.id,
+    productId: row.product_id,
+    parentId: row.parent_id,
+    name: row.name,
+    sortOrder: row.sort_order,
+    isActive: row.is_active === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+var notFound = (what) => ({
+  ok: false,
+  issues: [{ field: "form", level: "error", message: what }]
+});
+var VariantRepo = class {
+  constructor(db2) {
+    this.db = db2;
+  }
+  get(id) {
+    const row = this.db.prepare("SELECT * FROM variant WHERE id = ?").get(id);
+    return row ? rowToVariant(row) : null;
+  }
+  /** एक सामान की सारी पंक्तियाँ, सपाट. */
+  rowsFor(productId, includeInactive = false) {
+    const where = includeInactive ? "" : "AND is_active = 1";
+    const rows = this.db.prepare(`SELECT * FROM variant WHERE product_id = ? ${where} ORDER BY sort_order, name`).all(productId);
+    return rows.map(rowToVariant);
+  }
+  /** एक सामान का पूरा पेड़. पर्दा यही माँगता है. */
+  treeFor(productId, includeInactive = false) {
+    return buildTree(this.rowsFor(productId, includeInactive));
+  }
+  /**
+   * जोड़ना या बदलना.
+   *
+   * जाँच हमेशा उसी पेड़ पर होती है जो अभी डेटाबेस में है — पर्दे ने जो
+   * भेजा उस पर नहीं. पर्दा पुराना हो सकता है; डेटाबेस नहीं.
+   */
+  save(draft, existingId = null) {
+    const clean = { ...draft, name: normalizeVariantName(draft.name) };
+    const product = this.db.prepare("SELECT id FROM product WHERE id = ?").get(clean.productId);
+    if (!product) return notFound("\u092F\u0947 \u0938\u093E\u092E\u093E\u0928 \u092E\u093F\u0932\u093E \u0939\u0940 \u0928\u0939\u0940\u0902");
+    if (existingId !== null && this.get(existingId) === null) {
+      return notFound("\u092F\u0947 \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u092E\u093F\u0932\u093E \u0939\u0940 \u0928\u0939\u0940\u0902");
+    }
+    const tree = this.treeFor(clean.productId, true);
+    const issues = validateVariant(clean, {
+      tree,
+      ...existingId !== null ? { editingId: existingId } : {}
+    });
+    if (issues.some((i) => i.level === "error")) return { ok: false, issues };
+    const at = nowIso();
+    const id = existingId ?? newId();
+    const before = existingId ? this.get(existingId) : null;
+    const write = this.db.transaction(() => {
+      if (existingId === null) {
+        this.db.prepare(
+          `INSERT INTO variant (id, product_id, parent_id, name, sort_order, is_active, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, 1, ?, ?)`
+        ).run(id, clean.productId, clean.parentId, clean.name, clean.sortOrder ?? 0, at, at);
+      } else {
+        this.db.prepare(
+          `UPDATE variant SET parent_id = ?, name = ?, sort_order = ?, updated_at = ? WHERE id = ?`
+        ).run(clean.parentId, clean.name, clean.sortOrder ?? 0, at, id);
+      }
+      const after = this.get(id);
+      this.db.prepare(
+        `INSERT INTO audit_log (at, entity, entity_id, action, before_json, after_json, actor)
+           VALUES (?, 'variant', ?, ?, ?, ?, NULL)`
+      ).run(
+        at,
+        id,
+        existingId === null ? "CREATE" : "UPDATE",
+        before ? JSON.stringify(before) : null,
+        JSON.stringify(after)
+      );
+      return after;
+    });
+    return { ok: true, variant: write() };
+  }
+  /**
+   * बंद करना या वापस चालू करना.
+   *
+   * बंद करने पर नीचे का सारा पेड़ भी बंद होता है. ये जानबूझ कर है: "पाउच"
+   * बंद हो और "खुला पाउच" चालू रह जाए तो वो पर्दे पर कहीं दिखेगा ही नहीं,
+   * पर बिल में आ सकता है — बेचने लायक़ चीज़ का इस तरह छिपा रह जाना सबसे बुरा है.
+   *
+   * वापस चालू करने पर सिर्फ़ यही चालू होता है, नीचे वाले नहीं. दुकानदार ने
+   * नीचे जो जानबूझ कर बंद किया था, वो अपने आप वापस नहीं आना चाहिए. पर
+   * ऊपर वाले ज़रूर चालू होते हैं — वरना ये चालू हो कर भी कहीं नहीं दिखता.
+   */
+  setActive(id, isActive) {
+    const before = this.get(id);
+    if (before === null) return notFound("\u092F\u0947 \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u092E\u093F\u0932\u093E \u0939\u0940 \u0928\u0939\u0940\u0902");
+    if (before.isActive === isActive) return { ok: true, variant: before };
+    const at = nowIso();
+    const tree = this.treeFor(before.productId, true);
+    const touched = [id];
+    if (!isActive) {
+      const walk = (nodes) => {
+        for (const node of nodes) {
+          if (node.id === id) {
+            const below = (list) => {
+              for (const child of list) {
+                touched.push(child.id);
+                below(child.children);
+              }
+            };
+            below(node.children);
+            return;
+          }
+          walk(node.children);
+        }
+      };
+      walk(tree);
+    } else {
+      let parentId = before.parentId;
+      const guard = /* @__PURE__ */ new Set();
+      while (parentId !== null && !guard.has(parentId)) {
+        guard.add(parentId);
+        touched.push(parentId);
+        parentId = this.get(parentId)?.parentId ?? null;
+      }
+    }
+    const write = this.db.transaction(() => {
+      const mark = this.db.prepare("UPDATE variant SET is_active = ?, updated_at = ? WHERE id = ?");
+      const log = this.db.prepare(
+        `INSERT INTO audit_log (at, entity, entity_id, action, before_json, after_json, actor)
+         VALUES (?, 'variant', ?, ?, ?, ?, NULL)`
+      );
+      for (const each of touched) {
+        const was = this.get(each);
+        if (!was || was.isActive === isActive) continue;
+        mark.run(isActive ? 1 : 0, at, each);
+        log.run(
+          at,
+          each,
+          isActive ? "REACTIVATE" : "DEACTIVATE",
+          JSON.stringify(was),
+          JSON.stringify(this.get(each))
+        );
+      }
+      return this.get(id);
+    });
+    return { ok: true, variant: write() };
+  }
+  /** किसी सामान के कितने वेरिएंट चालू हैं. */
+  countFor(productId) {
+    const row = this.db.prepare("SELECT COUNT(*) AS n FROM variant WHERE product_id = ? AND is_active = 1").get(productId);
+    return row.n;
+  }
+};
+
 // src/core/translitOnline.ts
 var ENDPOINT = globalThis.process?.env?.POS_TRANSLIT_ENDPOINT ?? "https://inputtools.google.com/request";
 var ONLINE_TIMEOUT_MS = 900;
@@ -1510,7 +1862,7 @@ async function probeOnline(options = {}) {
 
 // electron/main.ts
 var APP_VERSION = true ? "0.3.0" : "0.0.0";
-var BRAIN_VERSION = true ? "0.8.0" : APP_VERSION;
+var BRAIN_VERSION = true ? "0.9.0" : APP_VERSION;
 var SHOP_NAME = true ? "\u091D\u093E\u091C\u0940 \u091A\u0942\u0921\u093C\u093E \u092E\u093F\u0932" : "\u0926\u0941\u0915\u093E\u0928 POS";
 var BRAIN_DIR = process.env.POS_BRAIN_DIR ?? __dirname;
 var UPDATE_BASE = process.env.POS_UPDATE_BASE ?? "https://raw.githubusercontent.com/deepeshjha98/POS_Application_release/main";
@@ -1528,6 +1880,7 @@ var db;
 var products;
 var categories;
 var words;
+var variants;
 var mainWindow = null;
 function shippedWeb() {
   const candidates = [];
@@ -1833,6 +2186,12 @@ var METHODS = {
     if (!product) throw new Error("\u0938\u093E\u092E\u093E\u0928 \u0928\u0939\u0940\u0902 \u092E\u093F\u0932\u093E");
     return { product };
   },
+  // ---- वेरिएंट का पेड़ ----
+  variants: ([productId, includeInactive]) => ({
+    tree: variants.treeFor(String(productId ?? ""), includeInactive === true)
+  }),
+  saveVariant: ([draft, id]) => variants.save(draft, id === null || id === void 0 ? null : String(id)),
+  setVariantActive: ([id, isActive]) => variants.setActive(String(id ?? ""), isActive === true),
   categories: ([includeInactive]) => ({
     categories: categories.list(includeInactive === true),
     counts: categories.productCounts(),
@@ -1986,6 +2345,7 @@ ${message}`);
   products = new ProductRepo(db);
   categories = new CategoryRepo(db);
   words = new WordRepo(db);
+  variants = new VariantRepo(db);
   import_electron.ipcMain.handle("pos:call", (_event, method, args) => {
     const handler = METHODS[method];
     if (!handler) throw new Error(`\u0905\u0928\u091C\u093E\u0928 \u0915\u093E\u092E: ${method}`);
