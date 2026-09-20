@@ -1862,10 +1862,14 @@ async function probeOnline(options = {}) {
 
 // electron/main.ts
 var APP_VERSION = true ? "0.3.0" : "0.0.0";
-var BRAIN_VERSION = true ? "0.9.0" : APP_VERSION;
+var BRAIN_VERSION = true ? "0.10.0" : APP_VERSION;
 var SHOP_NAME = true ? "\u091D\u093E\u091C\u0940 \u091A\u0942\u0921\u093C\u093E \u092E\u093F\u0932" : "\u0926\u0941\u0915\u093E\u0928 POS";
 var BRAIN_DIR = process.env.POS_BRAIN_DIR ?? __dirname;
 var UPDATE_BASE = process.env.POS_UPDATE_BASE ?? "https://raw.githubusercontent.com/deepeshjha98/POS_Application_release/main";
+function fresh(path) {
+  const sep = path.includes("?") ? "&" : "?";
+  return `${UPDATE_BASE}/${path}${sep}t=${Date.now().toString(36)}`;
+}
 function versionLessThan(a, b) {
   const pa = a.split(".").map((n) => Number(n) || 0);
   const pb = b.split(".").map((n) => Number(n) || 0);
@@ -1936,8 +1940,8 @@ function downloadedIcon() {
 }
 function appIcon() {
   if (process.platform === "win32") {
-    const fresh = downloadedIcon();
-    if (fresh) return fresh;
+    const fresh2 = downloadedIcon();
+    if (fresh2) return fresh2;
   }
   const places = [process.env.POS_SHIPPED_BRAIN_DIR, BRAIN_DIR, __dirname];
   for (const folder of places) {
@@ -1968,7 +1972,7 @@ async function settleIcon(force = false) {
     }
   } catch {
   }
-  const want = (await (await fetch(`${UPDATE_BASE}/icon/icon.ico.sha256`, { cache: "no-store" })).text()).trim().split(/\s+/)[0];
+  const want = (await (await fetch(fresh("icon/icon.ico.sha256"), { cache: "no-store" })).text()).trim().split(/\s+/)[0];
   if (!want || !/^[0-9a-f]{64}$/.test(want)) throw new Error("\u0906\u0907\u0915\u0949\u0928 \u0915\u093E \u091C\u094B\u0921\u093C \u0938\u092E\u091D \u0928\u0939\u0940\u0902 \u0906\u092F\u093E");
   const store = iconStore();
   const target = (0, import_node_path.join)(store, `${want.slice(0, 12)}.ico`);
@@ -2211,7 +2215,7 @@ var METHODS = {
   setCategoryActive: ([id, isActive]) => categories.setActive(String(id), isActive === true)
 };
 async function fetchUpdateInfo() {
-  const response = await fetch(`${UPDATE_BASE}/version.json`, { cache: "no-store" });
+  const response = await fetch(fresh("version.json"), { cache: "no-store" });
   if (!response.ok) throw new Error(`\u0928\u092F\u093E \u0930\u0942\u092A \u0926\u0947\u0916\u0928\u0947 \u092E\u0947\u0902 \u0926\u093F\u0915\u093C\u094D\u0915\u093C\u0924 (${response.status})`);
   return await response.json();
 }
@@ -2237,8 +2241,8 @@ async function checkUpdate() {
 }
 async function downloadVerified(path) {
   const [fileResponse, sumResponse] = await Promise.all([
-    fetch(`${UPDATE_BASE}/${path}`, { cache: "no-store" }),
-    fetch(`${UPDATE_BASE}/${path}.sha256`, { cache: "no-store" })
+    fetch(fresh(path), { cache: "no-store" }),
+    fetch(fresh(`${path}.sha256`), { cache: "no-store" })
   ]);
   if (!fileResponse.ok) throw new Error(`${path} \u0928\u0939\u0940\u0902 \u092E\u093F\u0932\u0940 (${fileResponse.status})`);
   const data = Buffer.from(await fileResponse.arrayBuffer());
