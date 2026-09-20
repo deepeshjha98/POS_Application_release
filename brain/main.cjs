@@ -1509,8 +1509,8 @@ async function probeOnline(options = {}) {
 }
 
 // electron/main.ts
-var APP_VERSION = true ? "0.2.0" : "0.0.0";
-var BRAIN_VERSION = true ? "0.3.0" : APP_VERSION;
+var APP_VERSION = true ? "0.3.0" : "0.0.0";
+var BRAIN_VERSION = true ? "0.4.0" : APP_VERSION;
 var BRAIN_DIR = process.env.POS_BRAIN_DIR ?? __dirname;
 var UPDATE_BASE = process.env.POS_UPDATE_BASE ?? "https://raw.githubusercontent.com/deepeshjha98/POS_Application_release/main";
 function versionLessThan(a, b) {
@@ -1564,6 +1564,22 @@ function localWebVersion() {
   if ((0, import_node_fs.existsSync)(file)) return (0, import_node_fs.readFileSync)(file, "utf8").trim();
   return APP_VERSION;
 }
+function appIcon() {
+  const places = [process.env.POS_SHIPPED_BRAIN_DIR, BRAIN_DIR, __dirname];
+  for (const folder of places) {
+    if (!folder) continue;
+    for (const name of ["icon.ico", "icon.png"]) {
+      for (const candidate of [(0, import_node_path.join)(folder, name), (0, import_node_path.join)(folder, "..", name)]) {
+        if ((0, import_node_fs.existsSync)(candidate)) return candidate;
+      }
+    }
+  }
+  if (import_electron.app.isPackaged) {
+    const packed = (0, import_node_path.join)(process.resourcesPath, "icon.ico");
+    if ((0, import_node_fs.existsSync)(packed)) return packed;
+  }
+  return void 0;
+}
 function markBrainVerified() {
   const shipped = process.env.POS_SHIPPED_BRAIN_DIR;
   if (!shipped || BRAIN_DIR === shipped) return;
@@ -1581,6 +1597,7 @@ function markBrainVerified() {
   }
 }
 function createWindow() {
+  const icon = appIcon();
   mainWindow = new import_electron.BrowserWindow({
     width: 1400,
     height: 900,
@@ -1590,6 +1607,7 @@ function createWindow() {
     autoHideMenuBar: true,
     backgroundColor: "#f1f5f9",
     title: "\u0926\u0941\u0915\u093E\u0928 \u2014 \u0938\u093E\u092E\u093E\u0928",
+    ...icon ? { icon } : {},
     webPreferences: {
       // preload उसी दिमाग़ के साथ का होना चाहिए जो अभी चल रहा है
       preload: (0, import_node_path.join)(BRAIN_DIR, "preload.cjs"),
@@ -1618,7 +1636,8 @@ var METHODS = {
     db: (0, import_node_path.join)(import_electron.app.getPath("userData"), "pos.db"),
     appVersion: APP_VERSION,
     webVersion: localWebVersion(),
-    brainVersion: BRAIN_VERSION
+    brainVersion: BRAIN_VERSION,
+    icon: appIcon() ?? null
   }),
   list: ([query, options]) => {
     const q = String(query ?? "");
@@ -1787,6 +1806,7 @@ if (process.env.POS_USER_DATA) {
   import_electron.app.setPath("userData", process.env.POS_USER_DATA);
 }
 import_electron.app.whenReady().then(() => {
+  if (process.platform === "win32") import_electron.app.setAppUserModelId("in.dukan.pos");
   const dataFolder = import_electron.app.getPath("userData");
   const dbFile = (0, import_node_path.join)(dataFolder, "pos.db");
   try {
