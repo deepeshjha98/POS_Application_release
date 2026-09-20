@@ -1510,7 +1510,7 @@ async function probeOnline(options = {}) {
 
 // electron/main.ts
 var APP_VERSION = true ? "0.3.0" : "0.0.0";
-var BRAIN_VERSION = true ? "0.6.0" : APP_VERSION;
+var BRAIN_VERSION = true ? "0.7.0" : APP_VERSION;
 var BRAIN_DIR = process.env.POS_BRAIN_DIR ?? __dirname;
 var UPDATE_BASE = process.env.POS_UPDATE_BASE ?? "https://raw.githubusercontent.com/deepeshjha98/POS_Application_release/main";
 function versionLessThan(a, b) {
@@ -1564,10 +1564,18 @@ function localWebVersion() {
   if ((0, import_node_fs.existsSync)(file)) return (0, import_node_fs.readFileSync)(file, "utf8").trim();
   return APP_VERSION;
 }
+function iconStore() {
+  return (0, import_node_path.join)(import_electron.app.getPath("userData"), "icons");
+}
 function downloadedIcon() {
   try {
-    const file = (0, import_node_path.join)(import_electron.app.getPath("userData"), "icon.ico");
-    return (0, import_node_fs.existsSync)(file) ? file : null;
+    const store = iconStore();
+    if ((0, import_node_fs.existsSync)(store)) {
+      const found = (0, import_node_fs.readdirSync)(store).filter((name) => name.toLowerCase().endsWith(".ico")).map((name) => (0, import_node_path.join)(store, name)).sort((a, b) => (0, import_node_fs.statSync)(b).mtimeMs - (0, import_node_fs.statSync)(a).mtimeMs);
+      if (found[0]) return found[0];
+    }
+    const old = (0, import_node_path.join)(import_electron.app.getPath("userData"), "icon.ico");
+    return (0, import_node_fs.existsSync)(old) ? old : null;
   } catch {
     return null;
   }
@@ -1608,11 +1616,23 @@ async function settleIcon(force = false) {
   }
   const want = (await (await fetch(`${UPDATE_BASE}/icon/icon.ico.sha256`, { cache: "no-store" })).text()).trim().split(/\s+/)[0];
   if (!want || !/^[0-9a-f]{64}$/.test(want)) throw new Error("\u0906\u0907\u0915\u0949\u0928 \u0915\u093E \u091C\u094B\u0921\u093C \u0938\u092E\u091D \u0928\u0939\u0940\u0902 \u0906\u092F\u093E");
-  const have = (0, import_node_fs.existsSync)(file) ? (0, import_node_crypto.createHash)("sha256").update((0, import_node_fs.readFileSync)(file)).digest("hex") : "";
+  const store = iconStore();
+  const target = (0, import_node_path.join)(store, `${want.slice(0, 12)}.ico`);
   let changed = false;
-  if (have !== want) {
-    (0, import_node_fs.writeFileSync)(file, await downloadVerified("icon/icon.ico"));
+  if (!(0, import_node_fs.existsSync)(target)) {
+    const data = await downloadVerified("icon/icon.ico");
+    (0, import_node_fs.mkdirSync)(store, { recursive: true });
+    (0, import_node_fs.writeFileSync)(target, data);
     changed = true;
+  }
+  try {
+    const old = (0, import_node_fs.readdirSync)(store).filter((name) => name.toLowerCase().endsWith(".ico") && (0, import_node_path.join)(store, name) !== target).map((name) => (0, import_node_path.join)(store, name)).sort((a, b) => (0, import_node_fs.statSync)(b).mtimeMs - (0, import_node_fs.statSync)(a).mtimeMs);
+    for (const extra of old.slice(2)) (0, import_node_fs.rmSync)(extra, { force: true });
+  } catch {
+  }
+  try {
+    if ((0, import_node_fs.existsSync)(file)) (0, import_node_fs.rmSync)(file, { force: true });
+  } catch {
   }
   (0, import_node_fs.writeFileSync)(stamp, BRAIN_VERSION, "utf8");
   return changed;
@@ -1622,6 +1642,28 @@ function shortcutPlaces() {
     (0, import_node_path.join)(import_electron.app.getPath("desktop"), "\u0926\u0941\u0915\u093E\u0928 POS.lnk"),
     (0, import_node_path.join)(import_electron.app.getPath("appData"), "Microsoft", "Windows", "Start Menu", "Programs", "\u0926\u0941\u0915\u093E\u0928 POS.lnk")
   ];
+}
+function pinnedPlaces() {
+  try {
+    const dir = (0, import_node_path.join)(
+      import_electron.app.getPath("appData"),
+      "Microsoft",
+      "Internet Explorer",
+      "Quick Launch",
+      "User Pinned",
+      "TaskBar"
+    );
+    if (!(0, import_node_fs.existsSync)(dir)) return [];
+    return (0, import_node_fs.readdirSync)(dir).filter((name) => name.toLowerCase().endsWith(".lnk")).map((name) => (0, import_node_path.join)(dir, name)).filter((file) => {
+      try {
+        return import_electron.shell.readShortcutLink(file).target === process.execPath;
+      } catch {
+        return false;
+      }
+    });
+  } catch {
+    return [];
+  }
 }
 function shortcutIsCurrent(file, icon) {
   try {
@@ -1641,20 +1683,14 @@ function ensureShortcuts(force = false) {
   const made = [];
   let skipped = 0;
   try {
-    for (const target of shortcutPlaces()) {
+    for (const target of [...shortcutPlaces(), ...pinnedPlaces()]) {
       const there = (0, import_node_fs.existsSync)(target);
       if (there && !force && shortcutIsCurrent(target, icon)) {
         skipped += 1;
         continue;
       }
       (0, import_node_fs.mkdirSync)((0, import_node_path.dirname)(target), { recursive: true });
-      if (there) {
-        try {
-          (0, import_node_fs.rmSync)(target, { force: true });
-        } catch {
-        }
-      }
-      const done = import_electron.shell.writeShortcutLink(target, "create", {
+      const done = import_electron.shell.writeShortcutLink(target, there ? "update" : "create", {
         target: process.execPath,
         cwd: (0, import_node_path.dirname)(process.execPath),
         description: "\u0926\u0941\u0915\u093E\u0928 POS \u2014 \u0926\u0941\u0915\u093E\u0928 \u0915\u093E \u0939\u093F\u0938\u093E\u092C",
@@ -1842,10 +1878,7 @@ async function applyUpdate() {
     webApplied = true;
   }
   try {
-    const fresh = await downloadVerified("icon/icon.ico");
-    const onDisk = (0, import_node_path.join)(userData, "icon.ico");
-    const same = (0, import_node_fs.existsSync)(onDisk) && (0, import_node_fs.readFileSync)(onDisk).equals(fresh);
-    if (!same) (0, import_node_fs.writeFileSync)(onDisk, fresh);
+    await settleIcon(true);
   } catch {
   }
   const brainLatest = info.brain ?? BRAIN_VERSION;
@@ -1957,13 +1990,12 @@ ${message}`);
   });
   createWindow();
   void (async () => {
-    let fresh = false;
     try {
-      fresh = await settleIcon();
+      await settleIcon();
     } catch (error) {
       console.warn("[pos] \u0906\u0907\u0915\u0949\u0928 \u0928\u0939\u0940\u0902 \u0906 \u092A\u093E\u092F\u093E:", error);
     }
-    if (fresh && process.platform === "win32") {
+    if (process.platform === "win32") {
       const icon = appIcon();
       if (icon && mainWindow && !mainWindow.isDestroyed()) {
         try {
