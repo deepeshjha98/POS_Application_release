@@ -1510,7 +1510,8 @@ async function probeOnline(options = {}) {
 
 // electron/main.ts
 var APP_VERSION = true ? "0.3.0" : "0.0.0";
-var BRAIN_VERSION = true ? "0.7.0" : APP_VERSION;
+var BRAIN_VERSION = true ? "0.8.0" : APP_VERSION;
+var SHOP_NAME = true ? "\u091D\u093E\u091C\u0940 \u091A\u0942\u0921\u093C\u093E \u092E\u093F\u0932" : "\u0926\u0941\u0915\u093E\u0928 POS";
 var BRAIN_DIR = process.env.POS_BRAIN_DIR ?? __dirname;
 var UPDATE_BASE = process.env.POS_UPDATE_BASE ?? "https://raw.githubusercontent.com/deepeshjha98/POS_Application_release/main";
 function versionLessThan(a, b) {
@@ -1637,11 +1638,33 @@ async function settleIcon(force = false) {
   (0, import_node_fs.writeFileSync)(stamp, BRAIN_VERSION, "utf8");
   return changed;
 }
-function shortcutPlaces() {
+function shortcutFolders() {
   return [
-    (0, import_node_path.join)(import_electron.app.getPath("desktop"), "\u0926\u0941\u0915\u093E\u0928 POS.lnk"),
-    (0, import_node_path.join)(import_electron.app.getPath("appData"), "Microsoft", "Windows", "Start Menu", "Programs", "\u0926\u0941\u0915\u093E\u0928 POS.lnk")
+    import_electron.app.getPath("desktop"),
+    (0, import_node_path.join)(import_electron.app.getPath("appData"), "Microsoft", "Windows", "Start Menu", "Programs")
   ];
+}
+function shortcutPlaces() {
+  return shortcutFolders().map((folder) => (0, import_node_path.join)(folder, `${SHOP_NAME}.lnk`));
+}
+function dropOldShortcuts() {
+  const gone = [];
+  const oldNames = ["\u0926\u0941\u0915\u093E\u0928 POS.lnk", "Dukan POS.lnk", "DukanPOS.lnk"].filter(
+    (name) => name !== `${SHOP_NAME}.lnk`
+  );
+  for (const folder of shortcutFolders()) {
+    for (const name of oldNames) {
+      const file = (0, import_node_path.join)(folder, name);
+      if (!(0, import_node_fs.existsSync)(file)) continue;
+      try {
+        if (import_electron.shell.readShortcutLink(file).target !== process.execPath) continue;
+        (0, import_node_fs.rmSync)(file, { force: true });
+        gone.push(file);
+      } catch {
+      }
+    }
+  }
+  return gone;
 }
 function pinnedPlaces() {
   try {
@@ -1693,7 +1716,7 @@ function ensureShortcuts(force = false) {
       const done = import_electron.shell.writeShortcutLink(target, there ? "update" : "create", {
         target: process.execPath,
         cwd: (0, import_node_path.dirname)(process.execPath),
-        description: "\u0926\u0941\u0915\u093E\u0928 POS \u2014 \u0926\u0941\u0915\u093E\u0928 \u0915\u093E \u0939\u093F\u0938\u093E\u092C",
+        description: `${SHOP_NAME} \u2014 \u0926\u0941\u0915\u093E\u0928 \u0915\u093E \u0939\u093F\u0938\u093E\u092C`,
         appUserModelId: "in.dukan.pos",
         ...icon ? { icon, iconIndex: 0 } : {}
       });
@@ -1706,8 +1729,13 @@ function ensureShortcuts(force = false) {
       reason: error instanceof Error ? error.message : String(error)
     };
   }
+  let gone = [];
+  try {
+    gone = dropOldShortcuts();
+  } catch {
+  }
   if (made.length > 0) return { ok: true, made };
-  if (skipped > 0) return { ok: true, made: [], reason: "\u092A\u0939\u0932\u0947 \u0938\u0947 \u092C\u0928\u0947 \u0939\u0941\u090F \u0939\u0948\u0902" };
+  if (skipped > 0 || gone.length > 0) return { ok: true, made: [], reason: "\u092A\u0939\u0932\u0947 \u0938\u0947 \u092C\u0928\u0947 \u0939\u0941\u090F \u0939\u0948\u0902" };
   return { ok: false, made: [], reason: "\u092C\u0928 \u0928\u0939\u0940\u0902 \u092A\u093E\u092F\u093E" };
 }
 function markBrainVerified() {
@@ -1736,7 +1764,7 @@ function createWindow() {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: "#f1f5f9",
-    title: "\u0926\u0941\u0915\u093E\u0928 \u2014 \u0938\u093E\u092E\u093E\u0928",
+    title: SHOP_NAME,
     ...icon ? { icon } : {},
     webPreferences: {
       // preload उसी दिमाग़ के साथ का होना चाहिए जो अभी चल रहा है

@@ -1,14 +1,14 @@
 ﻿@echo off
 chcp 65001 >nul
 setlocal
-title दुकान POS — तैयारी
+title झाजी चूड़ा मिल — तैयारी
 
 set "TARGET=%LOCALAPPDATA%\DukanPOS"
 set "EURL=https://github.com/electron/electron/releases/download/v44.4.3/electron-v44.4.3-win32-x64.zip"
 
 echo.
 echo   ======================================
-echo     दुकान POS  —  तैयारी
+echo     झाजी चूड़ा मिल  —  तैयारी
 echo   ======================================
 echo.
 
@@ -59,7 +59,7 @@ rmdir /s /q "%TARGET%\resources\app" 2>nul
 if not exist "%TARGET%\resources\app" goto :unpack
 set /a __tries+=1
 if %__tries% geq 30 (
-  echo   [रुकिए] दुकान POS अभी खुला हुआ है. उसे बंद कर के दोबारा चलाइए.
+  echo   [रुकिए] झाजी चूड़ा मिल अभी खुला हुआ है. उसे बंद कर के दोबारा चलाइए.
   echo.
   pause
   exit /b 1
@@ -82,22 +82,26 @@ set "PS1=%TEMP%\dukan-lnk.ps1"
 >> "%B64%" echo ICgtbm90IChUZXN0LVBhdGggJGRpcikpIHsgTmV3LUl0ZW0gLUl0ZW1UeXBlIERpcmVjdG9yeSAt
 >> "%B64%" echo UGF0aCAkZGlyIC1Gb3JjZSB8IE91dC1OdWxsIH0NCiAgJGxpbmsgPSAkc2hlbGwuQ3JlYXRlU2hv
 >> "%B64%" echo cnRjdXQoJExpbmtQYXRoKQ0KICAkbGluay5UYXJnZXRQYXRoID0gJGV4ZQ0KICAkbGluay5Xb3Jr
->> "%B64%" echo aW5nRGlyZWN0b3J5ID0gJFRhcmdldA0KICAkbGluay5EZXNjcmlwdGlvbiA9ICfgpKbgpYHgpJXg
->> "%B64%" echo pL7gpKggUE9TIOKAlCDgpKbgpYHgpJXgpL7gpKgg4KSV4KS+IOCkueCkv+CkuOCkvuCkrCcNCiAg
->> "%B64%" echo aWYgKFRlc3QtUGF0aCAkaWNvbikgeyAkbGluay5JY29uTG9jYXRpb24gPSAiJGljb24sMCIgfQ0K
->> "%B64%" echo ICAkbGluay5TYXZlKCkNCn0NCg0KJGRlc2t0b3AgPSBbRW52aXJvbm1lbnRdOjpHZXRGb2xkZXJQ
->> "%B64%" echo YXRoKCdEZXNrdG9wJykNCiRzdGFydE1lbnUgPSBbRW52aXJvbm1lbnRdOjpHZXRGb2xkZXJQYXRo
->> "%B64%" echo KCdQcm9ncmFtcycpDQoNCk5ldy1EdWthbkxpbmsgKEpvaW4tUGF0aCAkZGVza3RvcCAn4KSm4KWB
->> "%B64%" echo 4KSV4KS+4KSoIFBPUy5sbmsnKQ0KTmV3LUR1a2FuTGluayAoSm9pbi1QYXRoICRzdGFydE1lbnUg
->> "%B64%" echo J+CkpuClgeCkleCkvuCkqCBQT1MubG5rJykNCg0KIyDgpKrgpYHgpLDgpL7gpKjgpYcgc2V0dXAg
+>> "%B64%" echo aW5nRGlyZWN0b3J5ID0gJFRhcmdldA0KICAkbGluay5EZXNjcmlwdGlvbiA9ICfgpJ3gpL7gpJzg
+>> "%B64%" echo pYAg4KSa4KWC4KSh4KS84KS+IOCkruCkv+CksiDigJQg4KSm4KWB4KSV4KS+4KSoIOCkleCkviDg
+>> "%B64%" echo pLngpL/gpLjgpL7gpKwnDQogIGlmIChUZXN0LVBhdGggJGljb24pIHsgJGxpbmsuSWNvbkxvY2F0
+>> "%B64%" echo aW9uID0gIiRpY29uLDAiIH0NCiAgJGxpbmsuU2F2ZSgpDQp9DQoNCiRkZXNrdG9wID0gW0Vudmly
+>> "%B64%" echo b25tZW50XTo6R2V0Rm9sZGVyUGF0aCgnRGVza3RvcCcpDQokc3RhcnRNZW51ID0gW0Vudmlyb25t
+>> "%B64%" echo ZW50XTo6R2V0Rm9sZGVyUGF0aCgnUHJvZ3JhbXMnKQ0KDQpOZXctRHVrYW5MaW5rIChKb2luLVBh
+>> "%B64%" echo dGggJGRlc2t0b3AgJ+CkneCkvuCknOClgCDgpJrgpYLgpKHgpLzgpL4g4KSu4KS/4KSyLmxuaycp
+>> "%B64%" echo DQpOZXctRHVrYW5MaW5rIChKb2luLVBhdGggJHN0YXJ0TWVudSAn4KSd4KS+4KSc4KWAIOCkmuCl
+>> "%B64%" echo guCkoeCkvOCkviDgpK7gpL/gpLIubG5rJykNCg0KIyDgpKrgpYHgpLDgpL7gpKjgpYcgc2V0dXAg
 >> "%B64%" echo 4KSo4KWHIOCkleCkreClgCDgpIXgpILgpJfgpY3gpLDgpYfgpJzgpLzgpYAg4KSo4KS+4KSuIOCk
 >> "%B64%" echo uOClhyDgpLbgpYngpLDgpY3gpJ/gpJXgpJ8g4KSs4KSo4KS+4KSv4KS+IOCkueCliyDgpKTgpYsg
 >> "%B64%" echo 4KS14KWLIOCkueCkn+CkviDgpKbgpYssDQojIOCkteCksOCkqOCkviDgpKHgpYfgpLjgpY3gpJXg
 >> "%B64%" echo pJ/gpYngpKog4KSq4KSwIOCkpuCliy3gpKbgpYsg4KS24KWJ4KSw4KWN4KSf4KSV4KSfIOCkquCk
 >> "%B64%" echo oeCkvOClhyDgpLDgpLngpYfgpILgpJfgpYcNCmZvcmVhY2ggKCRvbGQgaW4gQCgnRHVrYW4gUE9T
->> "%B64%" echo LmxuaycsICdEdWthblBPUy5sbmsnKSkgew0KICAkcCA9IEpvaW4tUGF0aCAkZGVza3RvcCAkb2xk
->> "%B64%" echo DQogIGlmIChUZXN0LVBhdGggJHApIHsgUmVtb3ZlLUl0ZW0gJHAgLUZvcmNlIC1FcnJvckFjdGlv
->> "%B64%" echo biBTaWxlbnRseUNvbnRpbnVlIH0NCn0NCg0KV3JpdGUtT3V0cHV0ICdzaG9ydGN1dC1vaycNCg==
+>> "%B64%" echo LmxuaycsICdEdWthblBPUy5sbmsnLCAn4KSm4KWB4KSV4KS+4KSoIFBPUy5sbmsnKSkgew0KICBp
+>> "%B64%" echo ZiAoJG9sZCAtZXEgJ+CkneCkvuCknOClgCDgpJrgpYLgpKHgpLzgpL4g4KSu4KS/4KSyLmxuaycp
+>> "%B64%" echo IHsgY29udGludWUgfQ0KICBmb3JlYWNoICgkZGlyIGluIEAoJGRlc2t0b3AsICRzdGFydE1lbnUp
+>> "%B64%" echo KSB7DQogICAgJHAgPSBKb2luLVBhdGggJGRpciAkb2xkDQogICAgaWYgKFRlc3QtUGF0aCAkcCkg
+>> "%B64%" echo eyBSZW1vdmUtSXRlbSAkcCAtRm9yY2UgLUVycm9yQWN0aW9uIFNpbGVudGx5Q29udGludWUgfQ0K
+>> "%B64%" echo ICB9DQp9DQoNCldyaXRlLU91dHB1dCAnc2hvcnRjdXQtb2snDQo=
 certutil -f -decode "%B64%" "%PS1%" >nul 2>&1
 if errorlevel 1 (
   echo   [ध्यान दें] शॉर्टकट नहीं बन पाया. app फिर भी यहाँ से खुलेगा:
@@ -114,7 +118,7 @@ del "%B64%" "%PS1%" 2>nul
 rem अपडेट बटन से चला हो तो बिना कुछ पूछे सीधे app खोल दो
 if /i "%~1"=="/auto" (
   echo.
-  echo   हो गया. दुकान POS खुल रहा है...
+  echo   हो गया. झाजी चूड़ा मिल खुल रहा है...
   start "" "%TARGET%\Dukan POS.exe"
   exit /b 0
 )
@@ -123,9 +127,9 @@ echo.
 echo   ======================================
 echo     हो गया.
 echo.
-echo     Desktop पर "दुकान POS" का शॉर्टकट है.
+echo     Desktop पर "झाजी चूड़ा मिल" का शॉर्टकट है.
 echo     आपका सामान और श्रेणियाँ जस की तस हैं:
-echo     %APPDATA%\dukan-pos\pos.db
+echo     %APPDATA%\Dukan POS\pos.db
 echo   ======================================
 echo.
 echo   चालू करने के लिए कोई भी कुंजी दबाइए...
