@@ -94,6 +94,62 @@ function openSqlite(file) {
 }
 
 // src/data/schema.ts
+function variantTableSql(table) {
+  return `
+CREATE TABLE IF NOT EXISTS ${table} (
+  id          TEXT PRIMARY KEY,
+  product_id  TEXT NOT NULL REFERENCES product (id) ON DELETE CASCADE,
+
+  -- \u0915\u093F\u0938\u0915\u0947 \u0928\u0940\u091A\u0947. NULL = \u0938\u0940\u0927\u0947 \u0938\u093E\u092E\u093E\u0928 \u0915\u0947 \u0928\u0940\u091A\u0947.
+  -- \u0905\u092A\u0928\u0947 \u0939\u0940 \u0938\u093E\u092E\u093E\u0928 \u0915\u0947 \u0915\u093F\u0938\u0940 \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u0915\u0947 \u0928\u0940\u091A\u0947 \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F \u2014 \u0935\u094B \u091C\u093E\u0901\u091A code \u092E\u0947\u0902 \u0939\u0948,
+  -- \u0915\u094D\u092F\u094B\u0902\u0915\u093F SQLite \u0915\u0940 CHECK \u0926\u0942\u0938\u0930\u0940 \u092A\u0902\u0915\u094D\u0924\u093F \u0928\u0939\u0940\u0902 \u092A\u0922\u093C \u0938\u0915\u0924\u0940.
+  parent_id   TEXT REFERENCES ${table} (id) ON DELETE CASCADE,
+
+  name        TEXT NOT NULL CHECK (length(trim(name)) > 0 AND length(name) <= 40),
+  sort_order  INTEGER NOT NULL DEFAULT 0,
+
+  -- ---- \u092C\u094D\u092F\u094C\u0930\u093E ----
+  --
+  -- \u092F\u0947 \u0938\u092C NULL \u0930\u0939 \u0938\u0915\u0924\u0947 \u0939\u0948\u0902, \u0914\u0930 \u091C\u093F\u0938 \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u0915\u0947 \u0928\u0940\u091A\u0947 \u0914\u0930 \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u0939\u0948\u0902 \u0909\u0928\u0915\u093E
+  -- NULL \u0939\u0940 \u0930\u0939\u0924\u093E \u0939\u0948 \u2014 \u0935\u0939\u093E\u0901 \u092D\u0930\u093E \u092D\u0940 \u0939\u094B \u0924\u094B \u0907\u0938\u094D\u0924\u0947\u092E\u093E\u0932 \u0928\u0939\u0940\u0902 \u0939\u094B\u0924\u093E. \u092C\u093F\u0915\u0924\u093E \u0938\u093F\u0930\u094D\u092B\u093C
+  -- \u092A\u0924\u094D\u0924\u093E \u0939\u0948, \u0914\u0930 \u092A\u0924\u094D\u0924\u093E \u0924\u092D\u0940 \u092C\u093F\u0915\u0924\u093E \u0939\u0948 \u091C\u092C \u0909\u0938\u0915\u093E \u092C\u094D\u092F\u094C\u0930\u093E \u092D\u0930\u093E \u0939\u094B.
+  --
+  -- (\u092A\u0941\u0930\u093E\u0928\u093E \u092C\u094D\u092F\u094C\u0930\u093E \u092E\u093F\u091F\u093E\u092F\u093E \u0928\u0939\u0940\u0902 \u091C\u093E\u0924\u093E. \u0915\u094B\u0908 \u092A\u0924\u094D\u0924\u093E \u0917\u0941\u091A\u094D\u091B\u093E \u092C\u0928 \u091C\u093E\u090F \u0914\u0930 \u092C\u093E\u0926 \u092E\u0947\u0902
+  --  \u0909\u0938\u0915\u0947 \u092C\u091A\u094D\u091A\u0947 \u0939\u091F \u091C\u093E\u090F\u0901, \u0924\u094B \u0909\u0938\u0915\u093E \u0905\u092A\u0928\u093E \u0926\u093E\u092E \u0935\u093E\u092A\u0938 \u0915\u093E\u092E \u0915\u0930\u0928\u0947 \u0932\u0917\u0924\u093E \u0939\u0948 \u2014 \u0926\u0941\u0915\u093E\u0928\u0926\u093E\u0930
+  --  \u0915\u094B \u0926\u094B\u092C\u093E\u0930\u093E \u092D\u0930\u0928\u093E \u0928\u0939\u0940\u0902 \u092A\u0921\u093C\u0924\u093E.)
+  kind                TEXT    CHECK (kind IS NULL OR kind IN ('PACKED', 'LOOSE', 'SERVICE')),
+  measure             TEXT    CHECK (measure IS NULL OR measure IN ('COUNT', 'WEIGHT', 'VOLUME', 'LENGTH')),
+  sale_unit           TEXT,
+
+  -- ---- \u092A\u0948\u0938\u093E: \u0938\u092C \u0915\u0941\u091B \u092A\u0942\u0930\u094D\u0923\u093E\u0902\u0915 \u092A\u0948\u0938\u0947 \u092E\u0947\u0902 ----
+  sale_price          INTEGER CHECK (sale_price IS NULL OR sale_price > 0),
+  mrp                 INTEGER CHECK (mrp IS NULL OR mrp > 0),
+  purchase_price      INTEGER CHECK (purchase_price IS NULL OR purchase_price >= 0),
+  price_includes_gst  INTEGER CHECK (price_includes_gst IS NULL OR price_includes_gst IN (0, 1)),
+  gst_rate_bps        INTEGER CHECK (gst_rate_bps IS NULL OR (gst_rate_bps >= 0 AND gst_rate_bps <= 10000)),
+  hsn_code            TEXT    CHECK (hsn_code IS NULL OR length(hsn_code) IN (4, 6, 8)),
+
+  -- ---- \u0938\u094D\u091F\u0949\u0915: \u0938\u092C \u0915\u0941\u091B \u092A\u0942\u0930\u094D\u0923\u093E\u0902\u0915 ticks \u092E\u0947\u0902 ----
+  track_stock         INTEGER CHECK (track_stock IS NULL OR track_stock IN (0, 1)),
+  low_stock_at        INTEGER CHECK (low_stock_at IS NULL OR low_stock_at > 0),
+  min_sale_qty        INTEGER CHECK (min_sale_qty IS NULL OR min_sale_qty > 0),
+  qty_step            INTEGER CHECK (qty_step IS NULL OR qty_step > 0),
+
+  is_active   INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL,
+
+  -- \u0915\u094B\u0908 \u0916\u093C\u0941\u0926 \u0915\u0947 \u0928\u0940\u091A\u0947 \u0928\u0939\u0940\u0902 \u091C\u093E \u0938\u0915\u0924\u093E. \u0932\u0902\u092C\u093E \u0917\u094B\u0932 \u091A\u0915\u094D\u0915\u0930 code \u0930\u094B\u0915\u0924\u093E \u0939\u0948.
+  CHECK (parent_id IS NULL OR parent_id <> id),
+  -- MRP \u0938\u0947 \u090A\u092A\u0930 \u092C\u0947\u091A\u0928\u093E \u092D\u093E\u0930\u0924 \u092E\u0947\u0902 \u0915\u093C\u093E\u0928\u0942\u0928\u0928 \u092E\u0928\u093E \u0939\u0948. code \u092E\u0947\u0902 \u092D\u0940 \u0930\u094B\u0915\u093E \u0939\u0948, \u092F\u0939\u093E\u0901 \u092D\u0940.
+  CHECK (mrp IS NULL OR sale_price IS NULL OR sale_price <= mrp),
+  -- \u092C\u093F\u0928\u093E \u0938\u094D\u091F\u0949\u0915 \u0935\u093E\u0932\u0947 \u0938\u093E\u092E\u093E\u0928 \u0915\u093E \u0938\u094D\u091F\u0949\u0915 \u0928\u0939\u0940\u0902 \u0917\u093F\u0928\u093E \u091C\u093E \u0938\u0915\u0924\u093E
+  CHECK (NOT (kind = 'SERVICE' AND track_stock = 1)),
+  -- \u0915\u092E \u0938\u0947 \u0915\u092E \u092E\u093E\u0924\u094D\u0930\u093E, \u0917\u0941\u0923\u0915 \u092E\u0947\u0902 \u092A\u0942\u0930\u0940 \u092C\u0948\u0920\u0928\u0940 \u091A\u093E\u0939\u093F\u090F
+  CHECK (min_sale_qty IS NULL OR qty_step IS NULL OR min_sale_qty % qty_step = 0)
+);
+`;
+}
 var SCHEMA_SQL = `
 -- ============================================================================
 -- POS \u0921\u0947\u091F\u093E\u092C\u0947\u0938 \u2014 \u092E\u0949\u0921\u094D\u092F\u0942\u0932 1: \u0938\u093E\u092E\u093E\u0928 (product)
@@ -125,25 +181,20 @@ CREATE TABLE IF NOT EXISTS category (
 CREATE UNIQUE INDEX IF NOT EXISTS ux_category_name
   ON category (name) WHERE is_active = 1;
 
--- \u0938\u093E\u092E\u093E\u0928
+-- \u0938\u093E\u092E\u093E\u0928 \u2014 \u0905\u092C \u0938\u093F\u0930\u094D\u092B\u093C \u0928\u093E\u092E.
+--
+-- \u0926\u0941\u0915\u093E\u0928\u0926\u093E\u0930 \u0915\u093E \u0928\u093F\u092F\u092E: "\u092A\u094D\u0930\u094B\u0921\u0915\u094D\u091F \u0915\u093E \u0924\u094B \u092C\u0938 \u0928\u093E\u092E \u0939\u094B\u0917\u093E, \u0909\u0938\u0915\u0947 \u0905\u0902\u0926\u0930 \u0935\u0947\u0930\u093F\u090F\u0902\u091F\u094D\u0938 \u0910\u0921
+-- \u0939\u094B\u0902\u0917\u0947 \u091C\u093F\u0938\u0915\u093E \u0938\u093E\u0930\u093E \u0921\u093F\u091F\u0947\u0932 \u092D\u0930\u093E \u091C\u093E\u090F\u0917\u093E."
+--
+-- \u0907\u0938\u0932\u093F\u090F \u0926\u093E\u092E, \u0924\u094C\u0932, GST, \u0938\u094D\u091F\u0949\u0915, \u092C\u093E\u0930\u0915\u094B\u0921 \u2014 \u0938\u092C \u092F\u0939\u093E\u0901 \u0938\u0947 \u0939\u091F \u0915\u0930 variant \u092A\u0930 \u091A\u0932\u0947
+-- \u0917\u090F \u0939\u0948\u0902. \u092F\u0939\u093E\u0901 \u0935\u0939\u0940 \u092C\u091A\u093E \u0939\u0948 \u091C\u094B \u0938\u091A\u092E\u0941\u091A \u092A\u0942\u0930\u0947 \u0938\u093E\u092E\u093E\u0928 \u0915\u093E \u0939\u0948: \u0928\u093E\u092E, \u0936\u094D\u0930\u0947\u0923\u0940, \u0914\u0930
+-- \u0924\u0947\u091C\u093C \u0916\u093F\u0921\u093C\u0915\u0940 \u092E\u0947\u0902 \u0926\u093F\u0916\u0947 \u092F\u093E \u0928\u0939\u0940\u0902.
 CREATE TABLE IF NOT EXISTS product (
   id                  TEXT PRIMARY KEY,
   name                TEXT NOT NULL CHECK (length(trim(name)) > 0),
   alt_name            TEXT,
   -- \u0916\u094B\u091C\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F \u0924\u0948\u092F\u093E\u0930 \u0930\u0942\u092A (\u091B\u094B\u091F\u0947 \u0905\u0915\u094D\u0937\u0930, \u0926\u094B\u0928\u094B\u0902 \u0928\u093E\u092E \u092E\u093F\u0932\u0947 \u0939\u0941\u090F)
   search_key          TEXT NOT NULL,
-
-  kind                TEXT NOT NULL CHECK (kind IN ('PACKED', 'LOOSE', 'SERVICE')),
-  measure             TEXT NOT NULL CHECK (measure IN ('COUNT', 'WEIGHT', 'VOLUME', 'LENGTH')),
-  sale_unit           TEXT NOT NULL,
-
-  -- ---- \u092A\u0948\u0938\u093E: \u0938\u092C \u0915\u0941\u091B \u092A\u0942\u0930\u094D\u0923\u093E\u0902\u0915 \u092A\u0948\u0938\u0947 \u092E\u0947\u0902 ----
-  sale_price          INTEGER NOT NULL CHECK (sale_price > 0),
-  mrp                 INTEGER CHECK (mrp IS NULL OR mrp > 0),
-  purchase_price      INTEGER CHECK (purchase_price IS NULL OR purchase_price >= 0),
-  price_includes_gst  INTEGER NOT NULL CHECK (price_includes_gst IN (0, 1)),
-  gst_rate_bps        INTEGER NOT NULL CHECK (gst_rate_bps >= 0 AND gst_rate_bps <= 10000),
-  hsn_code            TEXT CHECK (hsn_code IS NULL OR length(hsn_code) IN (4, 6, 8)),
 
   -- \u0939\u0930 \u0938\u093E\u092E\u093E\u0928 \u0915\u0940 \u090F\u0915 \u0936\u094D\u0930\u0947\u0923\u0940 \u091C\u093C\u0930\u0942\u0930\u0940 \u0939\u0948. \u092C\u093F\u0932\u093F\u0902\u0917 \u0936\u094D\u0930\u0947\u0923\u0940 \u0938\u0947 \u091A\u0932\u0924\u0940 \u0939\u0948, \u0907\u0938\u0932\u093F\u090F
   -- \u092C\u093F\u0928\u093E \u0936\u094D\u0930\u0947\u0923\u0940 \u0915\u093E \u0938\u093E\u092E\u093E\u0928 \u0915\u0939\u0940\u0902 \u0926\u093F\u0916\u0947\u0917\u093E \u0939\u0940 \u0928\u0939\u0940\u0902 \u2014 \u0935\u094B \u091A\u0941\u092A\u091A\u093E\u092A \u0916\u094B \u091C\u093E\u0928\u093E \u0939\u094B\u0917\u093E.
@@ -153,22 +204,9 @@ CREATE TABLE IF NOT EXISTS product (
   -- \u0924\u094B \u0930\u0939\u0924\u093E \u0939\u0940 \u0939\u0948 \u2014 \u092F\u0947 \u0909\u0938\u0915\u0947 \u0905\u0932\u093E\u0935\u093E \u0939\u0948, \u0909\u0938\u0915\u0940 \u091C\u0917\u0939 \u0928\u0939\u0940\u0902.
   in_super            INTEGER NOT NULL DEFAULT 0 CHECK (in_super IN (0, 1)),
 
-  -- ---- \u0938\u094D\u091F\u0949\u0915: \u0938\u092C \u0915\u0941\u091B \u092A\u0942\u0930\u094D\u0923\u093E\u0902\u0915 ticks \u092E\u0947\u0902 ----
-  track_stock         INTEGER NOT NULL CHECK (track_stock IN (0, 1)),
-  low_stock_at        INTEGER CHECK (low_stock_at IS NULL OR low_stock_at > 0),
-  min_sale_qty        INTEGER CHECK (min_sale_qty IS NULL OR min_sale_qty > 0),
-  qty_step            INTEGER CHECK (qty_step IS NULL OR qty_step > 0),
-
   is_active           INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
   created_at          TEXT NOT NULL,
-  updated_at          TEXT NOT NULL,
-
-  -- MRP \u0938\u0947 \u090A\u092A\u0930 \u092C\u0947\u091A\u0928\u093E \u092D\u093E\u0930\u0924 \u092E\u0947\u0902 \u0915\u093C\u093E\u0928\u0942\u0928\u0928 \u092E\u0928\u093E \u0939\u0948. code \u092E\u0947\u0902 \u092D\u0940 \u0930\u094B\u0915\u093E \u0939\u0948, \u092F\u0939\u093E\u0901 \u092D\u0940.
-  CHECK (mrp IS NULL OR sale_price <= mrp),
-  -- \u092C\u093F\u0928\u093E \u0938\u094D\u091F\u0949\u0915 \u0935\u093E\u0932\u0947 \u0938\u093E\u092E\u093E\u0928 \u0915\u093E \u0938\u094D\u091F\u0949\u0915 \u0928\u0939\u0940\u0902 \u0917\u093F\u0928\u093E \u091C\u093E \u0938\u0915\u0924\u093E
-  CHECK (NOT (kind = 'SERVICE' AND track_stock = 1)),
-  -- \u0915\u092E \u0938\u0947 \u0915\u092E \u092E\u093E\u0924\u094D\u0930\u093E, \u0917\u0941\u0923\u0915 \u092E\u0947\u0902 \u092A\u0942\u0930\u0940 \u092C\u0948\u0920\u0928\u0940 \u091A\u093E\u0939\u093F\u090F
-  CHECK (min_sale_qty IS NULL OR qty_step IS NULL OR min_sale_qty % qty_step = 0)
+  updated_at          TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS ix_product_search    ON product (search_key);
@@ -190,31 +228,14 @@ CREATE INDEX IF NOT EXISTS ix_product_super     ON product (in_super, name) WHER
 --
 -- \u092F\u093E\u0928\u0940: \u092C\u094D\u092F\u094C\u0930\u093E \u0938\u093F\u0930\u094D\u092B\u093C \u092A\u0924\u094D\u0924\u0947 \u092A\u0930, \u0914\u0930 \u092C\u093F\u0915\u0924\u093E \u0938\u093F\u0930\u094D\u092B\u093C \u092A\u0924\u094D\u0924\u093E \u0939\u0948.
 --
--- \u0905\u092D\u0940 \u092F\u0939\u093E\u0901 \u0938\u093F\u0930\u094D\u092B\u093C \u092A\u0947\u0921\u093C \u0939\u0948 \u2014 \u0928\u093E\u092E, \u0930\u093F\u0936\u094D\u0924\u093E, \u0915\u094D\u0930\u092E. \u0926\u093E\u092E-\u0924\u094C\u0932 \u0935\u093E\u0932\u0947 \u0916\u093E\u0928\u0947 \u0909\u0938\u0940 \u0935\u0915\u093C\u094D\u0924
--- \u091C\u0941\u0921\u093C\u0947\u0902\u0917\u0947 \u091C\u092C \u0909\u0928\u094D\u0939\u0947\u0902 \u092D\u0930\u0928\u0947 \u0935\u093E\u0932\u093E \u092A\u0930\u094D\u0926\u093E \u092C\u0928\u0947\u0917\u093E, \u0924\u093E\u0915\u093F \u0926\u0941\u0915\u093E\u0928 \u0915\u093E \u0926\u093E\u092E \u0915\u0941\u091B \u0938\u092E\u092F \u0915\u0947
--- \u0932\u093F\u090F \u092D\u0940 \u0926\u094B \u091C\u0917\u0939 \u092A\u0921\u093C\u093E \u0928 \u0930\u0939\u0947.
-CREATE TABLE IF NOT EXISTS variant (
-  id          TEXT PRIMARY KEY,
-  product_id  TEXT NOT NULL REFERENCES product (id) ON DELETE CASCADE,
-
-  -- \u0915\u093F\u0938\u0915\u0947 \u0928\u0940\u091A\u0947. NULL = \u0938\u0940\u0927\u0947 \u0938\u093E\u092E\u093E\u0928 \u0915\u0947 \u0928\u0940\u091A\u0947.
-  -- \u0905\u092A\u0928\u0947 \u0939\u0940 \u0938\u093E\u092E\u093E\u0928 \u0915\u0947 \u0915\u093F\u0938\u0940 \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u0915\u0947 \u0928\u0940\u091A\u0947 \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F \u2014 \u0935\u094B \u091C\u093E\u0901\u091A code \u092E\u0947\u0902 \u0939\u0948,
-  -- \u0915\u094D\u092F\u094B\u0902\u0915\u093F SQLite \u0915\u0940 CHECK \u0926\u0942\u0938\u0930\u0940 \u092A\u0902\u0915\u094D\u0924\u093F \u0928\u0939\u0940\u0902 \u092A\u0922\u093C \u0938\u0915\u0924\u0940.
-  parent_id   TEXT REFERENCES variant (id) ON DELETE CASCADE,
-
-  name        TEXT NOT NULL CHECK (length(trim(name)) > 0 AND length(name) <= 40),
-  sort_order  INTEGER NOT NULL DEFAULT 0,
-
-  is_active   INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
-  created_at  TEXT NOT NULL,
-  updated_at  TEXT NOT NULL,
-
-  -- \u0915\u094B\u0908 \u0916\u093C\u0941\u0926 \u0915\u0947 \u0928\u0940\u091A\u0947 \u0928\u0939\u0940\u0902 \u091C\u093E \u0938\u0915\u0924\u093E. \u0932\u0902\u092C\u093E \u0917\u094B\u0932 \u091A\u0915\u094D\u0915\u0930 code \u0930\u094B\u0915\u0924\u093E \u0939\u0948.
-  CHECK (parent_id IS NULL OR parent_id <> id)
-);
+-- \u0924\u093E\u0932\u093F\u0915\u093E \u0915\u093E \u092A\u0942\u0930\u093E \u0930\u0942\u092A \u0928\u0940\u091A\u0947 variantTableSql() \u092E\u0947\u0902 \u0939\u0948 \u2014 \u090F\u0915 \u0939\u0940 \u091C\u0917\u0939, \u0924\u093E\u0915\u093F
+-- \u0928\u0908 \u0926\u0941\u0915\u093E\u0928 \u0914\u0930 \u091A\u0922\u093C\u0940 \u0939\u0941\u0908 \u092A\u0941\u0930\u093E\u0928\u0940 \u0926\u0941\u0915\u093E\u0928, \u0926\u094B\u0928\u094B\u0902 \u0915\u094B \u092C\u093F\u0932\u0915\u0941\u0932 \u090F\u0915 \u0924\u093E\u0932\u093F\u0915\u093E \u092E\u093F\u0932\u0947.
+${variantTableSql("variant")}
 
 CREATE INDEX IF NOT EXISTS ix_variant_product ON variant (product_id, sort_order, name);
 CREATE INDEX IF NOT EXISTS ix_variant_parent  ON variant (parent_id);
+-- \u091C\u094B \u0938\u091A\u092E\u0941\u091A \u092C\u093F\u0915 \u0938\u0915\u0924\u0947 \u0939\u0948\u0902 (\u091C\u093F\u0928\u0915\u093E \u0905\u092A\u0928\u093E \u0926\u093E\u092E \u092D\u0930\u093E \u0939\u0948) \u2014 \u092C\u0947\u091A\u0924\u0947 \u0935\u0915\u093C\u094D\u0924 \u092F\u0939\u0940 \u0922\u0942\u0901\u0922\u0947 \u091C\u093E\u0924\u0947 \u0939\u0948\u0902
+CREATE INDEX IF NOT EXISTS ix_variant_sellable ON variant (product_id) WHERE sale_price IS NOT NULL;
 
 -- \u090F\u0915 \u0939\u0940 \u0928\u093E\u092E \u0915\u0947 \u0926\u094B \u092D\u093E\u0908 \u0928 \u0939\u094B\u0902. \u092F\u0939\u093E\u0901 \u0926\u094B index \u0939\u0948\u0902 \u0915\u094D\u092F\u094B\u0902\u0915\u093F SQLite \u092E\u0947\u0902
 -- NULL \u0915\u093F\u0938\u0940 \u0915\u0947 \u092C\u0930\u093E\u092C\u0930 \u0928\u0939\u0940\u0902 \u0939\u094B\u0924\u093E \u2014 \u0907\u0938\u0932\u093F\u090F "\u0938\u0940\u0927\u0947 \u0938\u093E\u092E\u093E\u0928 \u0915\u0947 \u0928\u0940\u091A\u0947" \u0935\u093E\u0932\u0947 \u0914\u0930
@@ -229,13 +250,21 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_variant_name_child
 
 -- \u092C\u093E\u0930\u0915\u094B\u0921 \u2014 \u090F\u0915 \u0938\u093E\u092E\u093E\u0928 \u0915\u0947 \u0915\u0908 \u0939\u094B \u0938\u0915\u0924\u0947 \u0939\u0948\u0902, \u092A\u0930 \u090F\u0915 \u092C\u093E\u0930\u0915\u094B\u0921 \u0938\u093F\u0930\u094D\u092B\u093C \u090F\u0915 \u0938\u093E\u092E\u093E\u0928 \u0915\u093E.
 -- barcode \u0915\u093E PRIMARY KEY \u0939\u094B\u0928\u093E \u0939\u0940 \u0935\u094B \u0924\u093E\u0932\u093E \u0939\u0948 \u091C\u094B \u0926\u094B \u0938\u093E\u092E\u093E\u0928 \u092A\u0930 \u090F\u0915 \u092C\u093E\u0930\u0915\u094B\u0921 \u0928\u0939\u0940\u0902 \u0932\u0917\u0928\u0947 \u0926\u0947\u0924\u093E.
-CREATE TABLE IF NOT EXISTS product_barcode (
+-- \u092C\u093E\u0930\u0915\u094B\u0921 \u0905\u092C \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u0915\u093E \u0939\u0948, \u0938\u093E\u092E\u093E\u0928 \u0915\u093E \u0928\u0939\u0940\u0902.
+--
+-- \u0914\u0930 \u0939\u094B\u0928\u093E \u092D\u0940 \u092F\u0939\u0940 \u091A\u093E\u0939\u093F\u090F: \u092A\u0948\u0915\u0947\u091F \u092A\u0930 \u091C\u094B \u092C\u093E\u0930\u0915\u094B\u0921 \u091B\u092A\u093E \u0939\u0948 \u0935\u094B "\u092E\u0941\u0921\u093C\u0939\u0940" \u0915\u093E \u0928\u0939\u0940\u0902,
+-- "\u092E\u0941\u0921\u093C\u0939\u0940 \u0915\u093E 200 \u0917\u094D\u0930\u093E\u092E \u0935\u093E\u0932\u093E \u092A\u093E\u0909\u091A" \u0915\u093E \u0939\u0948. scanner \u091A\u0932\u093E\u0924\u0947 \u0939\u0940 \u0938\u0940\u0927\u0947 \u0909\u0938\u0940 \u091A\u0940\u091C\u093C
+-- \u092A\u0930 \u092A\u0939\u0941\u0901\u091A\u0928\u093E \u0939\u0948 \u091C\u093F\u0938\u0915\u093E \u0905\u092A\u0928\u093E \u0926\u093E\u092E \u0939\u0948.
+--
+-- barcode \u0915\u093E PRIMARY KEY \u0939\u094B\u0928\u093E \u0939\u0940 \u0935\u094B \u0924\u093E\u0932\u093E \u0939\u0948 \u091C\u094B \u0926\u094B \u091A\u0940\u091C\u093C\u094B\u0902 \u092A\u0930 \u090F\u0915 \u092C\u093E\u0930\u0915\u094B\u0921
+-- \u0928\u0939\u0940\u0902 \u0932\u0917\u0928\u0947 \u0926\u0947\u0924\u093E.
+CREATE TABLE IF NOT EXISTS variant_barcode (
   barcode     TEXT PRIMARY KEY CHECK (length(barcode) BETWEEN 4 AND 20),
-  product_id  TEXT NOT NULL REFERENCES product (id) ON DELETE CASCADE,
+  variant_id  TEXT NOT NULL REFERENCES variant (id) ON DELETE CASCADE,
   created_at  TEXT NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS ix_product_barcode_product ON product_barcode (product_id);
+CREATE INDEX IF NOT EXISTS ix_variant_barcode_variant ON variant_barcode (variant_id);
 
 -- \u0939\u0930 \u092C\u0926\u0932\u093E\u0935 \u0915\u093E \u092C\u094D\u092F\u094B\u0930\u093E. \u0915\u092D\u0940 \u092E\u093F\u091F\u093E\u092F\u093E \u0928\u0939\u0940\u0902 \u091C\u093E\u0924\u093E.
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -270,7 +299,7 @@ CREATE INDEX IF NOT EXISTS ix_word_roman ON word (roman, uses DESC);
 `;
 
 // src/data/db.ts
-var SCHEMA_VERSION = 4;
+var SCHEMA_VERSION = 5;
 var UPGRADES = {
   /**
    * 2 -> 3 : दुकानदार का अपना शब्दकोश.
@@ -286,6 +315,138 @@ var UPGRADES = {
    * हर सामान का पेड़ अभी ख़ाली रहेगा; भरना मॉड्यूल 3 में शुरू होगा, उसी
    * पर्दे के साथ जो उसे भरेगा.
    */
+  /**
+   * 4 -> 5 : सामान सिर्फ़ नाम, पूरा ब्यौरा वेरिएंट पर.
+   *
+   * ---- ये सबसे नाज़ुक चढ़ाई है ----
+   *
+   * दुकान की pos.db में असली सामान और असली दाम हैं. यहाँ वो एक जगह से
+   * दूसरी जगह जाते हैं — यानी एक ग़लती और दुकान का हिसाब गया. इसलिए:
+   *
+   *   - हर सामान का पूरा ब्यौरा ज्यों का त्यों एक नए पत्ते में जाता है,
+   *     उसी नाम से. एक पैसा, एक ग्राम इधर-उधर नहीं.
+   *   - बारकोड भी उसी पत्ते के साथ जाते हैं.
+   *   - सब कुछ एक ही transaction में. बीच में बिजली जाए तो पुराना
+   *     डेटाबेस ज्यों का त्यों बचा रहता है, आधा-अधूरा कभी नहीं.
+   *   - आख़िर में गिन कर मिलाया जाता है: जितने सामान थे, उतने पत्ते बने
+   *     या नहीं. न मिले तो चढ़ाई वहीं रुक जाती है.
+   *
+   * ग़ौर: जिस सामान के पहले से वेरिएंट बने हुए हैं (मॉड्यूल 3 में बनाए
+   * गए), उसका ब्यौरा किसी नए पत्ते में नहीं डाला जाता — वो पेड़ दुकानदार
+   * का अपना बनाया है, उसमें अपने आप कुछ घुसाना ग़लत होगा.
+   */
+  4: (db2) => {
+    db2.exec(variantTableSql("variant_new"));
+    db2.exec(`
+      INSERT INTO variant_new (
+        id, product_id, parent_id, name, sort_order, is_active, created_at, updated_at
+      ) SELECT
+        id, product_id, parent_id, name, sort_order, is_active, created_at, updated_at
+        FROM variant;
+      DROP TABLE variant;
+      ALTER TABLE variant_new RENAME TO variant;
+    `);
+    db2.exec(`
+      CREATE TABLE IF NOT EXISTS variant_barcode (
+        barcode     TEXT PRIMARY KEY CHECK (length(barcode) BETWEEN 4 AND 20),
+        variant_id  TEXT NOT NULL REFERENCES variant (id) ON DELETE CASCADE,
+        created_at  TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS ix_variant_barcode_variant ON variant_barcode (variant_id);
+    `);
+    const old = db2.prepare(
+      `SELECT p.* FROM product p
+          WHERE NOT EXISTS (SELECT 1 FROM variant v WHERE v.product_id = p.id)`
+    ).all();
+    const insert = db2.prepare(
+      `INSERT INTO variant (
+         id, product_id, parent_id, name, sort_order, is_active, created_at, updated_at,
+         kind, measure, sale_unit, sale_price, mrp, purchase_price,
+         price_includes_gst, gst_rate_bps, hsn_code,
+         track_stock, low_stock_at, min_sale_qty, qty_step
+       ) VALUES (?, ?, NULL, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    const hasOldBarcodes = db2.prepare(
+      `SELECT COUNT(*) AS n FROM sqlite_master
+              WHERE type = 'table' AND name = 'product_barcode'`
+    ).get().n > 0;
+    const moveBarcode = hasOldBarcodes ? db2.prepare(
+      `INSERT OR IGNORE INTO variant_barcode (barcode, variant_id, created_at)
+           SELECT barcode, ?, created_at FROM product_barcode WHERE product_id = ?`
+    ) : null;
+    const pick = (row, ...names) => {
+      for (const name of names) {
+        const value = row[name];
+        if (value !== void 0) return value;
+      }
+      return null;
+    };
+    for (const row of old) {
+      const variantId = `v1-${String(row.id)}`;
+      insert.run(
+        variantId,
+        row.id,
+        row.name,
+        pick(row, "is_active") ?? 1,
+        pick(row, "created_at"),
+        pick(row, "updated_at"),
+        pick(row, "kind"),
+        pick(row, "measure"),
+        pick(row, "sale_unit"),
+        pick(row, "sale_price"),
+        pick(row, "mrp"),
+        pick(row, "purchase_price"),
+        pick(row, "price_includes_gst"),
+        pick(row, "gst_rate_bps"),
+        pick(row, "hsn_code"),
+        pick(row, "track_stock"),
+        pick(row, "low_stock_at"),
+        pick(row, "min_sale_qty", "min_qty_ticks"),
+        pick(row, "qty_step", "step_qty_ticks")
+      );
+      moveBarcode?.run(variantId, row.id);
+    }
+    const readBack = db2.prepare("SELECT sale_price AS price FROM variant WHERE id = ?");
+    for (const row of old) {
+      const made = readBack.get(`v1-${String(row.id)}`);
+      if (made === void 0) {
+        throw new Error(`\u091A\u0922\u093C\u093E\u0908 \u0930\u094B\u0915\u0940 \u0917\u0908: "${String(row.name)}" \u0915\u093E \u092C\u094D\u092F\u094C\u0930\u093E \u0915\u0939\u0940\u0902 \u0928\u0939\u0940\u0902 \u092A\u0939\u0941\u0901\u091A\u093E`);
+      }
+      const was = pick(row, "sale_price") ?? null;
+      if (was !== (made.price ?? null)) {
+        throw new Error(
+          `\u091A\u0922\u093C\u093E\u0908 \u0930\u094B\u0915\u0940 \u0917\u0908: "${String(row.name)}" \u0915\u093E \u0926\u093E\u092E \u092C\u0926\u0932 \u0917\u092F\u093E \u2014 \u092A\u0939\u0932\u0947 ${String(was)}, \u0905\u092C ${String(made.price)}`
+        );
+      }
+    }
+    if (hasOldBarcodes) {
+      const lostRow = db2.prepare(
+        `SELECT COUNT(*) AS n FROM product_barcode pb
+            WHERE NOT EXISTS (SELECT 1 FROM variant_barcode vb WHERE vb.barcode = pb.barcode)`
+      ).get();
+      if (lostRow.n > 0) {
+        throw new Error(`\u091A\u0922\u093C\u093E\u0908 \u0930\u094B\u0915\u0940 \u0917\u0908: ${lostRow.n} \u092C\u093E\u0930\u0915\u094B\u0921 \u092A\u0940\u091B\u0947 \u091B\u0942\u091F \u0930\u0939\u0947 \u0925\u0947`);
+      }
+    }
+    db2.exec(`
+      CREATE TABLE product_new (
+        id          TEXT PRIMARY KEY,
+        name        TEXT NOT NULL CHECK (length(trim(name)) > 0),
+        alt_name    TEXT,
+        search_key  TEXT NOT NULL,
+        category_id TEXT NOT NULL REFERENCES category (id),
+        in_super    INTEGER NOT NULL DEFAULT 0 CHECK (in_super IN (0, 1)),
+        is_active   INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+        created_at  TEXT NOT NULL,
+        updated_at  TEXT NOT NULL
+      );
+      INSERT INTO product_new (id, name, alt_name, search_key, category_id, in_super, is_active, created_at, updated_at)
+        SELECT id, name, alt_name, search_key, category_id, in_super, is_active, created_at, updated_at FROM product;
+      DROP TABLE IF EXISTS product_barcode;
+      DROP TABLE product;
+      ALTER TABLE product_new RENAME TO product;
+    `);
+  },
   3: (db2) => {
     db2.exec(`
       CREATE TABLE IF NOT EXISTS variant (
@@ -460,199 +621,23 @@ function nowIso() {
   return (/* @__PURE__ */ new Date()).toISOString();
 }
 
-// src/core/money.ts
-var PAISE_PER_RUPEE = 100;
-var MoneyError = class extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "MoneyError";
-  }
-};
-var MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
-var MIN_SAFE = -MAX_SAFE;
-function requireInteger(value, label) {
-  if (!Number.isFinite(value)) {
-    throw new MoneyError(`${label} \u0938\u0939\u0940 \u0938\u0902\u0916\u094D\u092F\u093E \u0928\u0939\u0940\u0902 \u0939\u0948: ${value}`);
-  }
-  if (!Number.isInteger(value)) {
-    throw new MoneyError(`${label} \u092A\u0942\u0930\u094D\u0923\u093E\u0902\u0915 \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F (\u092A\u0948\u0938\u0947 \u092E\u0947\u0902), \u092E\u093F\u0932\u093E: ${value}`);
-  }
-  if (!Number.isSafeInteger(value)) {
-    throw new MoneyError(`${label} \u0938\u0941\u0930\u0915\u094D\u0937\u093F\u0924 \u0938\u0940\u092E\u093E \u0938\u0947 \u092C\u093E\u0939\u0930 \u0939\u0948: ${value}`);
-  }
-}
-function toPaise(value) {
-  requireInteger(value, "\u0930\u0915\u093C\u092E");
-  return value;
-}
-function formatPaise(amount, withSymbol = true) {
-  requireInteger(amount, "\u0930\u0915\u093C\u092E");
-  const sign = amount < 0 ? "-" : "";
-  const abs = Math.abs(amount);
-  const rupeePart = Math.trunc(abs / PAISE_PER_RUPEE);
-  const paisePart = abs % PAISE_PER_RUPEE;
-  const grouped = new Intl.NumberFormat("en-IN", {
-    useGrouping: true,
-    maximumFractionDigits: 0
-  }).format(rupeePart);
-  const symbol = withSymbol ? "\u20B9" : "";
-  return `${sign}${symbol}${grouped}.${String(paisePart).padStart(2, "0")}`;
-}
-
-// src/core/gst.ts
-var GstError = class extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "GstError";
-  }
-};
-var GST_SLABS = Object.freeze([
-  { bps: 0, label: "0%", active: true, commonInKirana: true, note: "\u0916\u0941\u0932\u093E/\u092C\u093F\u0928\u093E \u092C\u094D\u0930\u093E\u0902\u0921 \u0915\u093E \u0905\u0928\u093E\u091C, \u0926\u093E\u0932, \u0906\u091F\u093E, \u0924\u093E\u091C\u093C\u093E \u0938\u093E\u092E\u093E\u0928, \u0926\u0942\u0927" },
-  { bps: 25, label: "0.25%", active: true, commonInKirana: false, note: "\u092C\u093F\u0928\u093E \u0924\u0930\u093E\u0936\u0947 \u0939\u0940\u0930\u0947" },
-  { bps: 300, label: "3%", active: true, commonInKirana: false, note: "\u0938\u094B\u0928\u093E, \u091A\u093E\u0901\u0926\u0940, \u0917\u0939\u0928\u0947" },
-  { bps: 500, label: "5%", active: true, commonInKirana: true, note: "\u091C\u093C\u094D\u092F\u093E\u0926\u093E\u0924\u0930 \u092A\u0948\u0915\u0947\u091F \u0935\u093E\u0932\u093E \u0916\u093E\u0928\u0947 \u0915\u093E \u0938\u093E\u092E\u093E\u0928, \u0930\u094B\u091C\u093C\u092E\u0930\u094D\u0930\u093E \u0915\u0940 \u091A\u0940\u091C\u093C\u0947\u0902" },
-  { bps: 1200, label: "12% (\u092A\u0941\u0930\u093E\u0928\u093E)", active: false, commonInKirana: false, note: "22 \u0938\u093F\u0924\u0902\u092C\u0930 2025 \u0938\u0947 \u0939\u091F\u093E \u0926\u093F\u092F\u093E \u0917\u092F\u093E \u2014 \u0938\u093F\u0930\u094D\u092B\u093C \u092A\u0941\u0930\u093E\u0928\u0947 \u092C\u093F\u0932\u094B\u0902 \u0915\u0947 \u0932\u093F\u090F" },
-  { bps: 1800, label: "18%", active: true, commonInKirana: true, note: "\u092C\u093E\u0915\u093C\u0940 \u091C\u093C\u094D\u092F\u093E\u0926\u093E\u0924\u0930 \u0938\u093E\u092E\u093E\u0928" },
-  { bps: 2800, label: "28% (\u092A\u0941\u0930\u093E\u0928\u093E)", active: false, commonInKirana: false, note: "22 \u0938\u093F\u0924\u0902\u092C\u0930 2025 \u0938\u0947 \u0939\u091F\u093E \u0926\u093F\u092F\u093E \u0917\u092F\u093E \u2014 \u0938\u093F\u0930\u094D\u092B\u093C \u092A\u0941\u0930\u093E\u0928\u0947 \u092C\u093F\u0932\u094B\u0902 \u0915\u0947 \u0932\u093F\u090F" },
-  { bps: 4e3, label: "40%", active: true, commonInKirana: false, note: "\u0924\u0902\u092C\u093E\u0915\u0942, \u092A\u093E\u0928 \u092E\u0938\u093E\u0932\u093E, \u0920\u0902\u0921\u0947 \u092E\u0940\u0920\u0947 \u092A\u0947\u092F" }
-]);
-var SLABS_BY_BPS = new Map(GST_SLABS.map((s) => [s.bps, s]));
-function isKnownGstRate(bps) {
-  return SLABS_BY_BPS.has(bps);
-}
-function toGstRate(bps) {
-  if (!Number.isInteger(bps)) {
-    throw new GstError(`GST \u0926\u0930 \u092A\u0942\u0930\u094D\u0923\u093E\u0902\u0915 basis points \u092E\u0947\u0902 \u0939\u094B\u0928\u0940 \u091A\u093E\u0939\u093F\u090F, \u092E\u093F\u0932\u093E: ${bps}`);
-  }
-  if (bps < 0 || bps > 1e4) {
-    throw new GstError(`GST \u0926\u0930 0% \u0938\u0947 100% \u0915\u0947 \u092C\u0940\u091A \u0939\u094B\u0928\u0940 \u091A\u093E\u0939\u093F\u090F, \u092E\u093F\u0932\u093E: ${bps / 100}%`);
-  }
-  return bps;
-}
-function isValidHsn(code) {
-  if (typeof code !== "string") return false;
-  const trimmed = code.trim();
-  return /^\d{4}$/.test(trimmed) || /^\d{6}$/.test(trimmed) || /^\d{8}$/.test(trimmed);
-}
-
-// src/core/units.ts
-var TICKS_PER_BASE = 1e3;
-var UnitError = class extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "UnitError";
-  }
-};
-var B = TICKS_PER_BASE;
-var UNIT_LIST = Object.freeze([
-  // गिनती — आधार: पीस
-  { code: "PCS", measure: "COUNT", labelHi: "\u092A\u0940\u0938", labelEn: "Piece", ticks: B, decimals: 0, isBase: true },
-  { code: "DOZ", measure: "COUNT", labelHi: "\u0926\u0930\u094D\u091C\u0928", labelEn: "Dozen", ticks: B * 12, decimals: 0, isBase: false },
-  // तौल — आधार: ग्राम
-  { code: "G", measure: "WEIGHT", labelHi: "\u0917\u094D\u0930\u093E\u092E", labelEn: "Gram", ticks: B, decimals: 0, isBase: true },
-  { code: "KG", measure: "WEIGHT", labelHi: "\u0915\u093F\u0932\u094B", labelEn: "Kilogram", ticks: B * 1e3, decimals: 3, isBase: false },
-  { code: "QTL", measure: "WEIGHT", labelHi: "\u0915\u094D\u0935\u093F\u0902\u091F\u0932", labelEn: "Quintal", ticks: B * 1e5, decimals: 3, isBase: false },
-  // नाप — आधार: मिलीलीटर
-  { code: "ML", measure: "VOLUME", labelHi: "\u092E\u093F.\u0932\u0940.", labelEn: "Millilitre", ticks: B, decimals: 0, isBase: true },
-  { code: "L", measure: "VOLUME", labelHi: "\u0932\u0940\u091F\u0930", labelEn: "Litre", ticks: B * 1e3, decimals: 3, isBase: false },
-  // लंबाई — आधार: मीटर
-  { code: "M", measure: "LENGTH", labelHi: "\u092E\u0940\u091F\u0930", labelEn: "Metre", ticks: B, decimals: 2, isBase: true },
-  { code: "CM", measure: "LENGTH", labelHi: "\u0938\u0947.\u092E\u0940.", labelEn: "Centimetre", ticks: B / 100, decimals: 0, isBase: false }
-]);
-var UNITS_BY_CODE = new Map(
-  UNIT_LIST.map((u) => [u.code, u])
-);
-function getUnit(code) {
-  const unit = UNITS_BY_CODE.get(code);
-  if (!unit) {
-    throw new UnitError(`\u0905\u0928\u091C\u093E\u0928 \u0907\u0915\u093E\u0908: ${String(code)}`);
-  }
-  return unit;
-}
-function isUnitCode(value) {
-  return typeof value === "string" && UNITS_BY_CODE.has(value);
-}
-function unitsForMeasure(measure) {
-  return UNIT_LIST.filter((u) => u.measure === measure);
-}
-function baseUnitOf(measure) {
-  const base = UNIT_LIST.find((u) => u.measure === measure && u.isBase);
-  if (!base) {
-    throw new UnitError(`${measure} \u0915\u0940 \u0915\u094B\u0908 \u0906\u0927\u093E\u0930-\u0907\u0915\u093E\u0908 \u0924\u092F \u0928\u0939\u0940\u0902 \u0939\u0948`);
-  }
-  return base;
-}
-function requireTicks(value, label = "\u092E\u093E\u0924\u094D\u0930\u093E") {
-  if (!Number.isFinite(value) || !Number.isInteger(value)) {
-    throw new UnitError(`${label} \u092A\u0942\u0930\u094D\u0923\u093E\u0902\u0915 ticks \u092E\u0947\u0902 \u0939\u094B\u0928\u0940 \u091A\u093E\u0939\u093F\u090F, \u092E\u093F\u0932\u093E: ${value}`);
-  }
-  if (!Number.isSafeInteger(value)) {
-    throw new UnitError(`${label} \u0938\u0941\u0930\u0915\u094D\u0937\u093F\u0924 \u0938\u0940\u092E\u093E \u0938\u0947 \u092C\u093E\u0939\u0930 \u0939\u0948: ${value}`);
-  }
-}
-function toTicks(value) {
-  requireTicks(value);
-  return value;
-}
-function formatQuantity(ticks, code) {
-  requireTicks(ticks);
-  const unit = getUnit(code);
-  const sign = ticks < 0 ? "-" : "";
-  const abs = Math.abs(ticks);
-  const whole = Math.trunc(abs / unit.ticks);
-  const remainder = abs - whole * unit.ticks;
-  if (remainder === 0) {
-    return `${sign}${whole}`;
-  }
-  let rest = remainder;
-  let fraction = "";
-  const MAX_DIGITS = 12;
-  while (rest !== 0 && fraction.length < MAX_DIGITS) {
-    rest *= 10;
-    const digit = Math.trunc(rest / unit.ticks);
-    fraction += String(digit);
-    rest -= digit * unit.ticks;
-  }
-  return `${sign}${whole}.${fraction}`;
-}
-function formatQuantityWithUnit(ticks, code) {
-  return `${formatQuantity(ticks, code)} ${getUnit(code).labelHi}`;
-}
-function fitsInUnit(ticks, code) {
-  requireTicks(ticks);
-  const unit = getUnit(code);
-  const perFracDigit = unit.ticks / 10 ** unit.decimals;
-  return Math.abs(ticks) % perFracDigit === 0;
-}
-function formatQuantitySmart(ticks, measure) {
-  requireTicks(ticks);
-  const abs = Math.abs(ticks);
-  const base = baseUnitOf(measure);
-  if (abs === 0) {
-    return formatQuantityWithUnit(ticks, base.code);
-  }
-  const candidates = unitsForMeasure(measure).slice().sort((a, b) => b.ticks - a.ticks);
-  for (const unit of candidates) {
-    if (abs >= unit.ticks && fitsInUnit(ticks, unit.code)) {
-      return formatQuantityWithUnit(ticks, unit.code);
-    }
-  }
-  return formatQuantityWithUnit(ticks, base.code);
-}
-
 // src/domain/conflicts.ts
-function checkProductConflicts(clean, lookup, options = {}) {
+function checkBarcodeConflicts(barcodes, barcodeOwnerName) {
   const issues = [];
-  for (const barcode of clean.barcodes ?? []) {
-    const owner = lookup.barcodeOwnerName(barcode);
+  for (const barcode of barcodes) {
+    const owner = barcodeOwnerName(barcode);
     if (owner !== null) {
       issues.push({
         field: "barcodes",
         level: "error",
-        message: `\u092C\u093E\u0930\u0915\u094B\u0921 "${barcode}" \u092A\u0939\u0932\u0947 \u0938\u0947 "${owner}" \u092A\u0930 \u0932\u0917\u093E \u0939\u0948 \u2014 \u090F\u0915 \u092C\u093E\u0930\u0915\u094B\u0921 \u0938\u093F\u0930\u094D\u092B\u093C \u090F\u0915 \u0938\u093E\u092E\u093E\u0928 \u092A\u0930 \u0932\u0917 \u0938\u0915\u0924\u093E \u0939\u0948`
+        message: `\u092C\u093E\u0930\u0915\u094B\u0921 "${barcode}" \u092A\u0939\u0932\u0947 \u0938\u0947 "${owner}" \u092A\u0930 \u0932\u0917\u093E \u0939\u0948 \u2014 \u090F\u0915 \u092C\u093E\u0930\u0915\u094B\u0921 \u0938\u093F\u0930\u094D\u092B\u093C \u090F\u0915 \u091A\u0940\u091C\u093C \u092A\u0930 \u0932\u0917 \u0938\u0915\u0924\u093E \u0939\u0948`
       });
     }
   }
+  return issues;
+}
+function checkProductConflicts(clean, lookup, options = {}) {
+  const issues = [];
   if (!options.allowDuplicateName && lookup.hasSameActiveName(clean.name)) {
     issues.push({
       field: "name",
@@ -780,9 +765,6 @@ function cleanText(value) {
 function err(field, message) {
   return { field, level: "error", message };
 }
-function warn(field, message) {
-  return { field, level: "warning", message };
-}
 function allowedMeasures(kind) {
   switch (kind) {
     case "PACKED":
@@ -810,154 +792,16 @@ function validateProduct(draft) {
   if (altName !== null && altName.length > ALT_NAME_MAX_LENGTH) {
     issues.push(err("altName", `\u0926\u0942\u0938\u0930\u093E \u0928\u093E\u092E ${ALT_NAME_MAX_LENGTH} \u0905\u0915\u094D\u0937\u0930 \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u0924\u093E`));
   }
-  const kind = draft.kind;
-  if (!PRODUCT_KINDS.some((k) => k.kind === kind)) {
-    issues.push(err("kind", "\u0938\u093E\u092E\u093E\u0928 \u0915\u0940 \u0915\u093F\u0938\u094D\u092E \u091A\u0941\u0928\u0928\u093E \u091C\u093C\u0930\u0942\u0930\u0940 \u0939\u0948"));
-  }
-  const measure = draft.measure;
-  if (PRODUCT_KINDS.some((k) => k.kind === kind) && !allowedMeasures(kind).includes(measure)) {
-    issues.push(
-      err("measure", `"${PRODUCT_KINDS.find((k) => k.kind === kind).labelHi}" \u0938\u093E\u092E\u093E\u0928 \u0907\u0938 \u0924\u0930\u0939 \u0928\u0939\u0940\u0902 \u092C\u093F\u0915 \u0938\u0915\u0924\u093E`)
-    );
-  }
-  if (!isUnitCode(draft.saleUnit)) {
-    issues.push(err("saleUnit", "\u092C\u093F\u0915\u094D\u0930\u0940 \u0915\u0940 \u0907\u0915\u093E\u0908 \u091A\u0941\u0928\u0928\u093E \u091C\u093C\u0930\u0942\u0930\u0940 \u0939\u0948"));
-  } else if (getUnit(draft.saleUnit).measure !== measure) {
-    issues.push(
-      err("saleUnit", `${getUnit(draft.saleUnit).labelHi} \u0907\u0938 \u0924\u0930\u0939 \u0915\u0947 \u0938\u093E\u092E\u093E\u0928 \u0915\u0940 \u0907\u0915\u093E\u0908 \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u0924\u0940`)
-    );
-  }
-  const salePrice = draft.salePrice;
-  if (!Number.isSafeInteger(salePrice)) {
-    issues.push(err("salePrice", "\u092C\u0947\u091A\u0928\u0947 \u0915\u093E \u0926\u093E\u092E \u0938\u0939\u0940 \u0928\u0939\u0940\u0902 \u0939\u0948"));
-  } else if (salePrice <= 0) {
-    issues.push(err("salePrice", "\u092C\u0947\u091A\u0928\u0947 \u0915\u093E \u0926\u093E\u092E \u0936\u0942\u0928\u094D\u092F \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F"));
-  } else if (salePrice > MAX_PRICE_PAISE) {
-    issues.push(err("salePrice", `\u0926\u093E\u092E ${formatPaise(toPaise(MAX_PRICE_PAISE))} \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u0924\u093E \u2014 \u090F\u0915 \u092C\u093E\u0930 \u091C\u093E\u0901\u091A \u0932\u0947\u0902`));
-  }
-  const mrp = draft.mrp ?? null;
-  if (mrp !== null) {
-    if (!Number.isSafeInteger(mrp) || mrp <= 0) {
-      issues.push(err("mrp", "MRP \u0938\u0939\u0940 \u0928\u0939\u0940\u0902 \u0939\u0948"));
-    } else if (mrp > MAX_PRICE_PAISE) {
-      issues.push(err("mrp", "MRP \u092C\u0939\u0941\u0924 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0939\u0948 \u2014 \u090F\u0915 \u092C\u093E\u0930 \u091C\u093E\u0901\u091A \u0932\u0947\u0902"));
-    } else if (Number.isSafeInteger(salePrice) && salePrice > mrp) {
-      issues.push(
-        err(
-          "salePrice",
-          `\u092C\u0947\u091A\u0928\u0947 \u0915\u093E \u0926\u093E\u092E (${formatPaise(toPaise(salePrice))}) MRP (${formatPaise(toPaise(mrp))}) \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0939\u0948 \u2014 MRP \u0938\u0947 \u090A\u092A\u0930 \u092C\u0947\u091A\u0928\u093E \u0915\u093C\u093E\u0928\u0942\u0928\u0928 \u092E\u0928\u093E \u0939\u0948`
-        )
-      );
-    }
-  }
-  if (kind === "PACKED" && mrp === null) {
-    issues.push(warn("mrp", "\u092A\u0948\u0915\u0947\u091F \u0935\u093E\u0932\u0947 \u0938\u093E\u092E\u093E\u0928 \u092A\u0930 MRP \u092D\u0930\u0928\u093E \u0905\u091A\u094D\u091B\u093E \u0930\u0939\u0924\u093E \u0939\u0948"));
-  }
-  const purchasePrice = draft.purchasePrice ?? null;
-  if (purchasePrice !== null) {
-    if (!Number.isSafeInteger(purchasePrice) || purchasePrice < 0) {
-      issues.push(err("purchasePrice", "\u0916\u093C\u0930\u0940\u0926 \u0915\u093E \u0926\u093E\u092E \u0938\u0939\u0940 \u0928\u0939\u0940\u0902 \u0939\u0948"));
-    } else if (purchasePrice > MAX_PRICE_PAISE) {
-      issues.push(err("purchasePrice", "\u0916\u093C\u0930\u0940\u0926 \u0915\u093E \u0926\u093E\u092E \u092C\u0939\u0941\u0924 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0939\u0948 \u2014 \u090F\u0915 \u092C\u093E\u0930 \u091C\u093E\u0901\u091A \u0932\u0947\u0902"));
-    } else if (Number.isSafeInteger(salePrice) && salePrice > 0 && salePrice < purchasePrice) {
-      issues.push(
-        warn(
-          "salePrice",
-          `\u092C\u0947\u091A\u0928\u0947 \u0915\u093E \u0926\u093E\u092E \u0916\u093C\u0930\u0940\u0926 (${formatPaise(toPaise(purchasePrice))}) \u0938\u0947 \u0915\u092E \u0939\u0948 \u2014 \u0907\u0938\u092E\u0947\u0902 \u0918\u093E\u091F\u093E \u0939\u094B\u0917\u093E`
-        )
-      );
-    }
-  }
-  const gstRateBps = draft.gstRateBps;
-  if (!Number.isInteger(gstRateBps) || !isKnownGstRate(gstRateBps)) {
-    issues.push(err("gstRateBps", "GST \u0915\u0940 \u0926\u0930 \u091A\u0941\u0928\u0928\u093E \u091C\u093C\u0930\u0942\u0930\u0940 \u0939\u0948"));
-  }
-  const hsnRaw = draft.hsnCode ?? null;
-  const hsnCode = typeof hsnRaw === "string" ? hsnRaw.trim() : null;
-  if (hsnCode !== null && hsnCode !== "" && !isValidHsn(hsnCode)) {
-    issues.push(err("hsnCode", "HSN \u0915\u094B\u0921 4, 6 \u092F\u093E 8 \u0905\u0902\u0915 \u0915\u093E \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F"));
-  }
-  if (typeof draft.priceIncludesGst !== "boolean") {
-    issues.push(err("priceIncludesGst", "\u092C\u0924\u093E\u0928\u093E \u0939\u094B\u0917\u093E \u0915\u093F \u0926\u093E\u092E \u092E\u0947\u0902 GST \u0936\u093E\u092E\u093F\u0932 \u0939\u0948 \u092F\u093E \u0928\u0939\u0940\u0902"));
-  }
-  const rawBarcodes = draft.barcodes ?? [];
-  const barcodes = [];
-  if (!Array.isArray(rawBarcodes)) {
-    issues.push(err("barcodes", "\u092C\u093E\u0930\u0915\u094B\u0921 \u0915\u0940 \u0938\u0942\u091A\u0940 \u0938\u0939\u0940 \u0928\u0939\u0940\u0902 \u0939\u0948"));
-  } else {
-    const seen = /* @__PURE__ */ new Set();
-    for (const raw of rawBarcodes) {
-      const check = checkBarcode(String(raw));
-      if (!check.ok) {
-        issues.push(err("barcodes", `\u092C\u093E\u0930\u0915\u094B\u0921 "${String(raw).trim()}": ${check.error}`));
-        continue;
-      }
-      if (seen.has(check.normalized)) {
-        issues.push(err("barcodes", `\u092C\u093E\u0930\u0915\u094B\u0921 "${check.normalized}" \u0926\u094B \u092C\u093E\u0930 \u0932\u093F\u0916\u093E \u0917\u092F\u093E \u0939\u0948`));
-        continue;
-      }
-      seen.add(check.normalized);
-      barcodes.push(check.normalized);
-      if (check.warning) {
-        issues.push(warn("barcodes", `\u092C\u093E\u0930\u0915\u094B\u0921 "${check.normalized}": ${check.warning}`));
-      }
-    }
-  }
   const categoryId = typeof draft.categoryId === "string" ? draft.categoryId.trim() : "";
   if (categoryId === "") {
     issues.push(err("categoryId", "\u0938\u093E\u092E\u093E\u0928 \u0915\u0940 \u0936\u094D\u0930\u0947\u0923\u0940 \u091A\u0941\u0928\u0928\u093E \u091C\u093C\u0930\u0942\u0930\u0940 \u0939\u0948"));
-  }
-  if (typeof draft.trackStock !== "boolean") {
-    issues.push(err("trackStock", "\u092C\u0924\u093E\u0928\u093E \u0939\u094B\u0917\u093E \u0915\u093F \u0938\u094D\u091F\u0949\u0915 \u0917\u093F\u0928\u0928\u093E \u0939\u0948 \u092F\u093E \u0928\u0939\u0940\u0902"));
-  }
-  if (kind === "SERVICE" && draft.trackStock === true) {
-    issues.push(err("trackStock", "\u092C\u093F\u0928\u093E \u0938\u094D\u091F\u0949\u0915 \u0935\u093E\u0932\u0947 \u0938\u093E\u092E\u093E\u0928 \u0915\u093E \u0938\u094D\u091F\u0949\u0915 \u0928\u0939\u0940\u0902 \u0917\u093F\u0928\u093E \u091C\u093E \u0938\u0915\u0924\u093E"));
-  }
-  const lowStockAt = draft.lowStockAt ?? null;
-  if (lowStockAt !== null) {
-    if (!Number.isSafeInteger(lowStockAt) || lowStockAt <= 0) {
-      issues.push(err("lowStockAt", "\u091A\u0947\u0924\u093E\u0935\u0928\u0940 \u0935\u093E\u0932\u0940 \u092E\u093E\u0924\u094D\u0930\u093E \u0936\u0942\u0928\u094D\u092F \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0939\u094B\u0928\u0940 \u091A\u093E\u0939\u093F\u090F"));
-    } else if (draft.trackStock === false) {
-      issues.push(warn("lowStockAt", "\u0938\u094D\u091F\u0949\u0915 \u0917\u093F\u0928\u093E \u0939\u0940 \u0928\u0939\u0940\u0902 \u091C\u093E \u0930\u0939\u093E, \u0924\u094B \u091A\u0947\u0924\u093E\u0935\u0928\u0940 \u0915\u093E \u0915\u094B\u0908 \u0905\u0938\u0930 \u0928\u0939\u0940\u0902 \u0939\u094B\u0917\u093E"));
-    }
-  }
-  const minSaleQty = draft.minSaleQty ?? null;
-  if (minSaleQty !== null && (!Number.isSafeInteger(minSaleQty) || minSaleQty <= 0)) {
-    issues.push(err("minSaleQty", "\u0915\u092E \u0938\u0947 \u0915\u092E \u092E\u093E\u0924\u094D\u0930\u093E \u0936\u0942\u0928\u094D\u092F \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0939\u094B\u0928\u0940 \u091A\u093E\u0939\u093F\u090F"));
-  }
-  const qtyStep = draft.qtyStep ?? null;
-  if (qtyStep !== null) {
-    if (!Number.isSafeInteger(qtyStep) || qtyStep <= 0) {
-      issues.push(err("qtyStep", "\u092E\u093E\u0924\u094D\u0930\u093E \u0915\u093E \u0917\u0941\u0923\u0915 \u0936\u0942\u0928\u094D\u092F \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F"));
-    } else if (minSaleQty !== null && Number.isSafeInteger(minSaleQty) && minSaleQty > 0 && minSaleQty % qtyStep !== 0) {
-      issues.push(
-        err(
-          "minSaleQty",
-          `\u0915\u092E \u0938\u0947 \u0915\u092E \u092E\u093E\u0924\u094D\u0930\u093E (${formatQuantitySmart(minSaleQty, measure)}) \u0917\u0941\u0923\u0915 (${formatQuantitySmart(qtyStep, measure)}) \u092E\u0947\u0902 \u092A\u0942\u0930\u0940 \u0928\u0939\u0940\u0902 \u092C\u0948\u0920\u0924\u0940`
-        )
-      );
-    }
   }
   const hasErrors = issues.some((i) => i.level === "error");
   const cleaned = hasErrors ? null : {
     name,
     altName: altName === "" ? null : altName,
-    kind,
-    measure,
-    saleUnit: draft.saleUnit,
-    salePrice,
-    mrp,
-    purchasePrice,
-    priceIncludesGst: draft.priceIncludesGst,
-    gstRateBps: toGstRate(gstRateBps),
-    hsnCode: hsnCode === "" ? null : hsnCode,
-    barcodes,
     categoryId,
     inSuper: draft.inSuper === true,
-    trackStock: draft.trackStock,
-    lowStockAt,
-    minSaleQty,
-    qtyStep,
     isActive: draft.isActive ?? true
   };
   return { issues, hasErrors, cleaned };
@@ -967,27 +811,13 @@ function searchKeyOf(product) {
 }
 
 // src/data/productRepo.ts
-function rowToProduct(row, barcodes) {
+function rowToProduct(row) {
   return {
     id: row.id,
     name: row.name,
     altName: row.alt_name,
-    kind: row.kind,
-    measure: row.measure,
-    saleUnit: row.sale_unit,
-    salePrice: toPaise(row.sale_price),
-    mrp: row.mrp === null ? null : toPaise(row.mrp),
-    purchasePrice: row.purchase_price === null ? null : toPaise(row.purchase_price),
-    priceIncludesGst: row.price_includes_gst === 1,
-    gstRateBps: toGstRate(row.gst_rate_bps),
-    hsnCode: row.hsn_code,
-    barcodes,
     categoryId: row.category_id,
     inSuper: row.in_super === 1,
-    trackStock: row.track_stock === 1,
-    lowStockAt: row.low_stock_at === null ? null : toTicks(row.low_stock_at),
-    minSaleQty: row.min_sale_qty === null ? null : toTicks(row.min_sale_qty),
-    qtyStep: row.qty_step === null ? null : toTicks(row.qty_step),
     isActive: row.is_active === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -998,22 +828,26 @@ var ProductRepo = class {
     this.db = db2;
   }
   // ---------------------------------------------------------------- पढ़ना ----
-  barcodesOf(productId) {
-    const rows = this.db.prepare("SELECT barcode FROM product_barcode WHERE product_id = ? ORDER BY created_at, barcode").all(productId);
-    return rows.map((r) => r.barcode);
-  }
   get(id) {
     const row = this.db.prepare("SELECT * FROM product WHERE id = ?").get(id);
-    return row ? rowToProduct(row, this.barcodesOf(row.id)) : null;
+    return row ? rowToProduct(row) : null;
   }
   /** बारकोड से सामान ढूँढ़ना — बिलिंग में यही सबसे ज़्यादा चलेगा, इसलिए सीधा index से. */
+  /**
+   * बारकोड से सामान.
+   *
+   * बारकोड अब वेरिएंट पर है, इसलिए यहाँ से उसका सामान मिलता है. scanner
+   * चलाने पर ठीक उसी चीज़ तक पहुँचना है जिसका अपना दाम है — वो
+   * VariantRepo.findByBarcode() देता है.
+   */
   findByBarcode(barcode) {
     const row = this.db.prepare(
       `SELECT p.* FROM product p
-         JOIN product_barcode b ON b.product_id = p.id
+         JOIN variant v ON v.product_id = p.id
+         JOIN variant_barcode b ON b.variant_id = v.id
          WHERE b.barcode = ?`
     ).get(barcode);
-    return row ? rowToProduct(row, this.barcodesOf(row.id)) : null;
+    return row ? rowToProduct(row) : null;
   }
   /** नाम से खोज. खाली खोज पर सब कुछ (क्रम से) लौटाता है. */
   search(query, options = {}) {
@@ -1028,19 +862,19 @@ var ProductRepo = class {
                  name
                LIMIT ?`
     ).all(`%${escapeLike(trimmed)}%`, `${escapeLike(trimmed)}%`, limit);
-    return rows.map((row) => rowToProduct(row, this.barcodesOf(row.id)));
+    return rows.map((row) => rowToProduct(row));
   }
   /** किसी एक श्रेणी का सारा सामान. */
   byCategory(categoryId, includeInactive = false) {
     const activeClause = includeInactive ? "" : "AND is_active = 1";
     const rows = this.db.prepare(`SELECT * FROM product WHERE category_id = ? ${activeClause} ORDER BY name`).all(categoryId);
-    return rows.map((row) => rowToProduct(row, this.barcodesOf(row.id)));
+    return rows.map((row) => rowToProduct(row));
   }
   /** "सबसे ज़्यादा बिकने वाला" खिड़की का सामान — ये अपनी श्रेणी में भी रहता है. */
   inSuper(includeInactive = false) {
     const activeClause = includeInactive ? "" : "AND is_active = 1";
     const rows = this.db.prepare(`SELECT * FROM product WHERE in_super = 1 ${activeClause} ORDER BY name`).all();
-    return rows.map((row) => rowToProduct(row, this.barcodesOf(row.id)));
+    return rows.map((row) => rowToProduct(row));
   }
   count(includeInactive = false) {
     const sql = includeInactive ? "SELECT COUNT(*) AS n FROM product" : "SELECT COUNT(*) AS n FROM product WHERE is_active = 1";
@@ -1050,10 +884,11 @@ var ProductRepo = class {
   barcodeOwner(barcode, exceptProductId) {
     const row = this.db.prepare(
       `SELECT p.* FROM product p
-         JOIN product_barcode b ON b.product_id = p.id
+         JOIN variant v ON v.product_id = p.id
+         JOIN variant_barcode b ON b.variant_id = v.id
          WHERE b.barcode = ? AND (? IS NULL OR p.id != ?)`
     ).get(barcode, exceptProductId, exceptProductId);
-    return row ? rowToProduct(row, []) : null;
+    return row ? rowToProduct(row) : null;
   }
   sameNameExists(name, exceptProductId) {
     const row = this.db.prepare(
@@ -1085,10 +920,7 @@ var ProductRepo = class {
     const issues = [...validation.issues];
     const blocking = checkProductConflicts(
       clean,
-      {
-        barcodeOwnerName: (barcode) => this.barcodeOwner(barcode, existingId)?.name ?? null,
-        hasSameActiveName: (name) => this.sameNameExists(name, existingId)
-      },
+      { hasSameActiveName: (name) => this.sameNameExists(name, existingId) },
       { allowDuplicateName: options.allowDuplicateName === true }
     );
     if (blocking.length > 0) {
@@ -1103,21 +935,8 @@ var ProductRepo = class {
         name: clean.name,
         alt_name: clean.altName ?? null,
         search_key: searchKeyOf({ name: clean.name, altName: clean.altName ?? null }),
-        kind: clean.kind,
-        measure: clean.measure,
-        sale_unit: clean.saleUnit,
-        sale_price: clean.salePrice,
-        mrp: clean.mrp ?? null,
-        purchase_price: clean.purchasePrice ?? null,
-        price_includes_gst: clean.priceIncludesGst ? 1 : 0,
-        gst_rate_bps: clean.gstRateBps,
-        hsn_code: clean.hsnCode ?? null,
         category_id: clean.categoryId,
         in_super: clean.inSuper === true ? 1 : 0,
-        track_stock: clean.trackStock ? 1 : 0,
-        low_stock_at: clean.lowStockAt ?? null,
-        min_sale_qty: clean.minSaleQty ?? null,
-        qty_step: clean.qtyStep ?? null,
         is_active: clean.isActive === false ? 0 : 1,
         created_at: before?.createdAt ?? at,
         updated_at: at
@@ -1125,14 +944,10 @@ var ProductRepo = class {
       if (existingId === null) {
         this.db.prepare(
           `INSERT INTO product (
-               id, name, alt_name, search_key, kind, measure, sale_unit,
-               sale_price, mrp, purchase_price, price_includes_gst, gst_rate_bps, hsn_code,
-               category_id, in_super, track_stock, low_stock_at, min_sale_qty, qty_step,
+               id, name, alt_name, search_key, category_id, in_super,
                is_active, created_at, updated_at
              ) VALUES (
-               @id, @name, @alt_name, @search_key, @kind, @measure, @sale_unit,
-               @sale_price, @mrp, @purchase_price, @price_includes_gst, @gst_rate_bps, @hsn_code,
-               @category_id, @in_super, @track_stock, @low_stock_at, @min_sale_qty, @qty_step,
+               @id, @name, @alt_name, @search_key, @category_id, @in_super,
                @is_active, @created_at, @updated_at
              )`
         ).run(values);
@@ -1141,22 +956,10 @@ var ProductRepo = class {
         this.db.prepare(
           `UPDATE product SET
                name = @name, alt_name = @alt_name, search_key = @search_key,
-               kind = @kind, measure = @measure, sale_unit = @sale_unit,
-               sale_price = @sale_price, mrp = @mrp, purchase_price = @purchase_price,
-               price_includes_gst = @price_includes_gst, gst_rate_bps = @gst_rate_bps,
-               hsn_code = @hsn_code, category_id = @category_id, in_super = @in_super,
-               track_stock = @track_stock, low_stock_at = @low_stock_at,
-               min_sale_qty = @min_sale_qty, qty_step = @qty_step,
+               category_id = @category_id, in_super = @in_super,
                is_active = @is_active, updated_at = @updated_at
              WHERE id = @id`
         ).run(updateValues);
-      }
-      this.db.prepare("DELETE FROM product_barcode WHERE product_id = ?").run(id);
-      const insertBarcode = this.db.prepare(
-        "INSERT INTO product_barcode (barcode, product_id, created_at) VALUES (?, ?, ?)"
-      );
-      for (const barcode of clean.barcodes ?? []) {
-        insertBarcode.run(barcode, id, at);
       }
       const after = this.get(id);
       this.db.prepare(
@@ -1497,6 +1300,351 @@ var WordRepo = class {
   }
 };
 
+// src/core/money.ts
+var PAISE_PER_RUPEE = 100;
+var MoneyError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "MoneyError";
+  }
+};
+var MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
+var MIN_SAFE = -MAX_SAFE;
+function requireInteger(value, label) {
+  if (!Number.isFinite(value)) {
+    throw new MoneyError(`${label} \u0938\u0939\u0940 \u0938\u0902\u0916\u094D\u092F\u093E \u0928\u0939\u0940\u0902 \u0939\u0948: ${value}`);
+  }
+  if (!Number.isInteger(value)) {
+    throw new MoneyError(`${label} \u092A\u0942\u0930\u094D\u0923\u093E\u0902\u0915 \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F (\u092A\u0948\u0938\u0947 \u092E\u0947\u0902), \u092E\u093F\u0932\u093E: ${value}`);
+  }
+  if (!Number.isSafeInteger(value)) {
+    throw new MoneyError(`${label} \u0938\u0941\u0930\u0915\u094D\u0937\u093F\u0924 \u0938\u0940\u092E\u093E \u0938\u0947 \u092C\u093E\u0939\u0930 \u0939\u0948: ${value}`);
+  }
+}
+function toPaise(value) {
+  requireInteger(value, "\u0930\u0915\u093C\u092E");
+  return value;
+}
+function formatPaise(amount, withSymbol = true) {
+  requireInteger(amount, "\u0930\u0915\u093C\u092E");
+  const sign = amount < 0 ? "-" : "";
+  const abs = Math.abs(amount);
+  const rupeePart = Math.trunc(abs / PAISE_PER_RUPEE);
+  const paisePart = abs % PAISE_PER_RUPEE;
+  const grouped = new Intl.NumberFormat("en-IN", {
+    useGrouping: true,
+    maximumFractionDigits: 0
+  }).format(rupeePart);
+  const symbol = withSymbol ? "\u20B9" : "";
+  return `${sign}${symbol}${grouped}.${String(paisePart).padStart(2, "0")}`;
+}
+
+// src/core/gst.ts
+var GstError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "GstError";
+  }
+};
+var GST_SLABS = Object.freeze([
+  { bps: 0, label: "0%", active: true, commonInKirana: true, note: "\u0916\u0941\u0932\u093E/\u092C\u093F\u0928\u093E \u092C\u094D\u0930\u093E\u0902\u0921 \u0915\u093E \u0905\u0928\u093E\u091C, \u0926\u093E\u0932, \u0906\u091F\u093E, \u0924\u093E\u091C\u093C\u093E \u0938\u093E\u092E\u093E\u0928, \u0926\u0942\u0927" },
+  { bps: 25, label: "0.25%", active: true, commonInKirana: false, note: "\u092C\u093F\u0928\u093E \u0924\u0930\u093E\u0936\u0947 \u0939\u0940\u0930\u0947" },
+  { bps: 300, label: "3%", active: true, commonInKirana: false, note: "\u0938\u094B\u0928\u093E, \u091A\u093E\u0901\u0926\u0940, \u0917\u0939\u0928\u0947" },
+  { bps: 500, label: "5%", active: true, commonInKirana: true, note: "\u091C\u093C\u094D\u092F\u093E\u0926\u093E\u0924\u0930 \u092A\u0948\u0915\u0947\u091F \u0935\u093E\u0932\u093E \u0916\u093E\u0928\u0947 \u0915\u093E \u0938\u093E\u092E\u093E\u0928, \u0930\u094B\u091C\u093C\u092E\u0930\u094D\u0930\u093E \u0915\u0940 \u091A\u0940\u091C\u093C\u0947\u0902" },
+  { bps: 1200, label: "12% (\u092A\u0941\u0930\u093E\u0928\u093E)", active: false, commonInKirana: false, note: "22 \u0938\u093F\u0924\u0902\u092C\u0930 2025 \u0938\u0947 \u0939\u091F\u093E \u0926\u093F\u092F\u093E \u0917\u092F\u093E \u2014 \u0938\u093F\u0930\u094D\u092B\u093C \u092A\u0941\u0930\u093E\u0928\u0947 \u092C\u093F\u0932\u094B\u0902 \u0915\u0947 \u0932\u093F\u090F" },
+  { bps: 1800, label: "18%", active: true, commonInKirana: true, note: "\u092C\u093E\u0915\u093C\u0940 \u091C\u093C\u094D\u092F\u093E\u0926\u093E\u0924\u0930 \u0938\u093E\u092E\u093E\u0928" },
+  { bps: 2800, label: "28% (\u092A\u0941\u0930\u093E\u0928\u093E)", active: false, commonInKirana: false, note: "22 \u0938\u093F\u0924\u0902\u092C\u0930 2025 \u0938\u0947 \u0939\u091F\u093E \u0926\u093F\u092F\u093E \u0917\u092F\u093E \u2014 \u0938\u093F\u0930\u094D\u092B\u093C \u092A\u0941\u0930\u093E\u0928\u0947 \u092C\u093F\u0932\u094B\u0902 \u0915\u0947 \u0932\u093F\u090F" },
+  { bps: 4e3, label: "40%", active: true, commonInKirana: false, note: "\u0924\u0902\u092C\u093E\u0915\u0942, \u092A\u093E\u0928 \u092E\u0938\u093E\u0932\u093E, \u0920\u0902\u0921\u0947 \u092E\u0940\u0920\u0947 \u092A\u0947\u092F" }
+]);
+var SLABS_BY_BPS = new Map(GST_SLABS.map((s) => [s.bps, s]));
+function isKnownGstRate(bps) {
+  return SLABS_BY_BPS.has(bps);
+}
+function toGstRate(bps) {
+  if (!Number.isInteger(bps)) {
+    throw new GstError(`GST \u0926\u0930 \u092A\u0942\u0930\u094D\u0923\u093E\u0902\u0915 basis points \u092E\u0947\u0902 \u0939\u094B\u0928\u0940 \u091A\u093E\u0939\u093F\u090F, \u092E\u093F\u0932\u093E: ${bps}`);
+  }
+  if (bps < 0 || bps > 1e4) {
+    throw new GstError(`GST \u0926\u0930 0% \u0938\u0947 100% \u0915\u0947 \u092C\u0940\u091A \u0939\u094B\u0928\u0940 \u091A\u093E\u0939\u093F\u090F, \u092E\u093F\u0932\u093E: ${bps / 100}%`);
+  }
+  return bps;
+}
+function isValidHsn(code) {
+  if (typeof code !== "string") return false;
+  const trimmed = code.trim();
+  return /^\d{4}$/.test(trimmed) || /^\d{6}$/.test(trimmed) || /^\d{8}$/.test(trimmed);
+}
+
+// src/core/units.ts
+var TICKS_PER_BASE = 1e3;
+var UnitError = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "UnitError";
+  }
+};
+var B = TICKS_PER_BASE;
+var UNIT_LIST = Object.freeze([
+  // गिनती — आधार: पीस
+  { code: "PCS", measure: "COUNT", labelHi: "\u092A\u0940\u0938", labelEn: "Piece", ticks: B, decimals: 0, isBase: true },
+  { code: "DOZ", measure: "COUNT", labelHi: "\u0926\u0930\u094D\u091C\u0928", labelEn: "Dozen", ticks: B * 12, decimals: 0, isBase: false },
+  // तौल — आधार: ग्राम
+  { code: "G", measure: "WEIGHT", labelHi: "\u0917\u094D\u0930\u093E\u092E", labelEn: "Gram", ticks: B, decimals: 0, isBase: true },
+  { code: "KG", measure: "WEIGHT", labelHi: "\u0915\u093F\u0932\u094B", labelEn: "Kilogram", ticks: B * 1e3, decimals: 3, isBase: false },
+  { code: "QTL", measure: "WEIGHT", labelHi: "\u0915\u094D\u0935\u093F\u0902\u091F\u0932", labelEn: "Quintal", ticks: B * 1e5, decimals: 3, isBase: false },
+  // नाप — आधार: मिलीलीटर
+  { code: "ML", measure: "VOLUME", labelHi: "\u092E\u093F.\u0932\u0940.", labelEn: "Millilitre", ticks: B, decimals: 0, isBase: true },
+  { code: "L", measure: "VOLUME", labelHi: "\u0932\u0940\u091F\u0930", labelEn: "Litre", ticks: B * 1e3, decimals: 3, isBase: false },
+  // लंबाई — आधार: मीटर
+  { code: "M", measure: "LENGTH", labelHi: "\u092E\u0940\u091F\u0930", labelEn: "Metre", ticks: B, decimals: 2, isBase: true },
+  { code: "CM", measure: "LENGTH", labelHi: "\u0938\u0947.\u092E\u0940.", labelEn: "Centimetre", ticks: B / 100, decimals: 0, isBase: false }
+]);
+var UNITS_BY_CODE = new Map(
+  UNIT_LIST.map((u) => [u.code, u])
+);
+function getUnit(code) {
+  const unit = UNITS_BY_CODE.get(code);
+  if (!unit) {
+    throw new UnitError(`\u0905\u0928\u091C\u093E\u0928 \u0907\u0915\u093E\u0908: ${String(code)}`);
+  }
+  return unit;
+}
+function isUnitCode(value) {
+  return typeof value === "string" && UNITS_BY_CODE.has(value);
+}
+function unitsForMeasure(measure) {
+  return UNIT_LIST.filter((u) => u.measure === measure);
+}
+function baseUnitOf(measure) {
+  const base = UNIT_LIST.find((u) => u.measure === measure && u.isBase);
+  if (!base) {
+    throw new UnitError(`${measure} \u0915\u0940 \u0915\u094B\u0908 \u0906\u0927\u093E\u0930-\u0907\u0915\u093E\u0908 \u0924\u092F \u0928\u0939\u0940\u0902 \u0939\u0948`);
+  }
+  return base;
+}
+function requireTicks(value, label = "\u092E\u093E\u0924\u094D\u0930\u093E") {
+  if (!Number.isFinite(value) || !Number.isInteger(value)) {
+    throw new UnitError(`${label} \u092A\u0942\u0930\u094D\u0923\u093E\u0902\u0915 ticks \u092E\u0947\u0902 \u0939\u094B\u0928\u0940 \u091A\u093E\u0939\u093F\u090F, \u092E\u093F\u0932\u093E: ${value}`);
+  }
+  if (!Number.isSafeInteger(value)) {
+    throw new UnitError(`${label} \u0938\u0941\u0930\u0915\u094D\u0937\u093F\u0924 \u0938\u0940\u092E\u093E \u0938\u0947 \u092C\u093E\u0939\u0930 \u0939\u0948: ${value}`);
+  }
+}
+function toTicks(value) {
+  requireTicks(value);
+  return value;
+}
+function formatQuantity(ticks, code) {
+  requireTicks(ticks);
+  const unit = getUnit(code);
+  const sign = ticks < 0 ? "-" : "";
+  const abs = Math.abs(ticks);
+  const whole = Math.trunc(abs / unit.ticks);
+  const remainder = abs - whole * unit.ticks;
+  if (remainder === 0) {
+    return `${sign}${whole}`;
+  }
+  let rest = remainder;
+  let fraction = "";
+  const MAX_DIGITS = 12;
+  while (rest !== 0 && fraction.length < MAX_DIGITS) {
+    rest *= 10;
+    const digit = Math.trunc(rest / unit.ticks);
+    fraction += String(digit);
+    rest -= digit * unit.ticks;
+  }
+  return `${sign}${whole}.${fraction}`;
+}
+function formatQuantityWithUnit(ticks, code) {
+  return `${formatQuantity(ticks, code)} ${getUnit(code).labelHi}`;
+}
+function fitsInUnit(ticks, code) {
+  requireTicks(ticks);
+  const unit = getUnit(code);
+  const perFracDigit = unit.ticks / 10 ** unit.decimals;
+  return Math.abs(ticks) % perFracDigit === 0;
+}
+function formatQuantitySmart(ticks, measure) {
+  requireTicks(ticks);
+  const abs = Math.abs(ticks);
+  const base = baseUnitOf(measure);
+  if (abs === 0) {
+    return formatQuantityWithUnit(ticks, base.code);
+  }
+  const candidates = unitsForMeasure(measure).slice().sort((a, b) => b.ticks - a.ticks);
+  for (const unit of candidates) {
+    if (abs >= unit.ticks && fitsInUnit(ticks, unit.code)) {
+      return formatQuantityWithUnit(ticks, unit.code);
+    }
+  }
+  return formatQuantityWithUnit(ticks, base.code);
+}
+
+// src/domain/variantDetail.ts
+var err2 = (field, message) => ({
+  field,
+  level: "error",
+  message
+});
+var warn = (field, message) => ({
+  field,
+  level: "warning",
+  message
+});
+function validateVariantDetail(draft) {
+  const issues = [];
+  const kind = draft.kind;
+  if (!PRODUCT_KINDS.some((k) => k.kind === kind)) {
+    issues.push(err2("kind", "\u092F\u0947 \u0915\u0948\u0938\u0947 \u092C\u093F\u0915\u0924\u093E \u0939\u0948, \u091A\u0941\u0928\u0928\u093E \u091C\u093C\u0930\u0942\u0930\u0940 \u0939\u0948"));
+  }
+  const measure = draft.measure;
+  if (PRODUCT_KINDS.some((k) => k.kind === kind) && !allowedMeasures(kind).includes(measure)) {
+    issues.push(
+      err2(
+        "measure",
+        `"${PRODUCT_KINDS.find((k) => k.kind === kind).labelHi}" \u091A\u0940\u091C\u093C \u0907\u0938 \u0924\u0930\u0939 \u0928\u0939\u0940\u0902 \u092C\u093F\u0915 \u0938\u0915\u0924\u0940`
+      )
+    );
+  }
+  if (!isUnitCode(draft.saleUnit)) {
+    issues.push(err2("saleUnit", "\u092C\u093F\u0915\u094D\u0930\u0940 \u0915\u0940 \u0907\u0915\u093E\u0908 \u091A\u0941\u0928\u0928\u093E \u091C\u093C\u0930\u0942\u0930\u0940 \u0939\u0948"));
+  } else if (getUnit(draft.saleUnit).measure !== measure) {
+    issues.push(
+      err2("saleUnit", `${getUnit(draft.saleUnit).labelHi} \u0907\u0938 \u0924\u0930\u0939 \u0915\u0940 \u091A\u0940\u091C\u093C \u0915\u0940 \u0907\u0915\u093E\u0908 \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u0924\u0940`)
+    );
+  }
+  const salePrice = draft.salePrice;
+  if (!Number.isSafeInteger(salePrice)) {
+    issues.push(err2("salePrice", "\u092C\u0947\u091A\u0928\u0947 \u0915\u093E \u0926\u093E\u092E \u0938\u0939\u0940 \u0928\u0939\u0940\u0902 \u0939\u0948"));
+  } else if (salePrice <= 0) {
+    issues.push(err2("salePrice", "\u092C\u0947\u091A\u0928\u0947 \u0915\u093E \u0926\u093E\u092E \u0936\u0942\u0928\u094D\u092F \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F"));
+  } else if (salePrice > MAX_PRICE_PAISE) {
+    issues.push(
+      err2(
+        "salePrice",
+        `\u0926\u093E\u092E ${formatPaise(toPaise(MAX_PRICE_PAISE))} \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0928\u0939\u0940\u0902 \u0939\u094B \u0938\u0915\u0924\u093E \u2014 \u090F\u0915 \u092C\u093E\u0930 \u091C\u093E\u0901\u091A \u0932\u0947\u0902`
+      )
+    );
+  }
+  const mrp = draft.mrp ?? null;
+  if (mrp !== null) {
+    if (!Number.isSafeInteger(mrp) || mrp <= 0) {
+      issues.push(err2("mrp", "MRP \u0938\u0939\u0940 \u0928\u0939\u0940\u0902 \u0939\u0948"));
+    } else if (mrp > MAX_PRICE_PAISE) {
+      issues.push(err2("mrp", "MRP \u092C\u0939\u0941\u0924 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0939\u0948 \u2014 \u090F\u0915 \u092C\u093E\u0930 \u091C\u093E\u0901\u091A \u0932\u0947\u0902"));
+    } else if (Number.isSafeInteger(salePrice) && salePrice > mrp) {
+      issues.push(
+        err2(
+          "salePrice",
+          `\u092C\u0947\u091A\u0928\u0947 \u0915\u093E \u0926\u093E\u092E (${formatPaise(toPaise(salePrice))}) MRP (${formatPaise(toPaise(mrp))}) \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0939\u0948 \u2014 MRP \u0938\u0947 \u090A\u092A\u0930 \u092C\u0947\u091A\u0928\u093E \u0915\u093C\u093E\u0928\u0942\u0928\u0928 \u092E\u0928\u093E \u0939\u0948`
+        )
+      );
+    }
+  }
+  if (kind === "PACKED" && mrp === null) {
+    issues.push(warn("mrp", "\u092A\u0948\u0915\u0947\u091F \u0935\u093E\u0932\u0940 \u091A\u0940\u091C\u093C \u092A\u0930 MRP \u092D\u0930\u0928\u093E \u0905\u091A\u094D\u091B\u093E \u0930\u0939\u0924\u093E \u0939\u0948"));
+  }
+  const purchasePrice = draft.purchasePrice ?? null;
+  if (purchasePrice !== null) {
+    if (!Number.isSafeInteger(purchasePrice) || purchasePrice < 0) {
+      issues.push(err2("purchasePrice", "\u0916\u093C\u0930\u0940\u0926 \u0915\u093E \u0926\u093E\u092E \u0938\u0939\u0940 \u0928\u0939\u0940\u0902 \u0939\u0948"));
+    } else if (purchasePrice > MAX_PRICE_PAISE) {
+      issues.push(err2("purchasePrice", "\u0916\u093C\u0930\u0940\u0926 \u0915\u093E \u0926\u093E\u092E \u092C\u0939\u0941\u0924 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0939\u0948 \u2014 \u090F\u0915 \u092C\u093E\u0930 \u091C\u093E\u0901\u091A \u0932\u0947\u0902"));
+    } else if (Number.isSafeInteger(salePrice) && salePrice > 0 && salePrice < purchasePrice) {
+      issues.push(
+        warn(
+          "salePrice",
+          `\u092C\u0947\u091A\u0928\u0947 \u0915\u093E \u0926\u093E\u092E \u0916\u093C\u0930\u0940\u0926 (${formatPaise(toPaise(purchasePrice))}) \u0938\u0947 \u0915\u092E \u0939\u0948 \u2014 \u0907\u0938\u092E\u0947\u0902 \u0918\u093E\u091F\u093E \u0939\u094B\u0917\u093E`
+        )
+      );
+    }
+  }
+  const gstRateBps = draft.gstRateBps;
+  if (!Number.isInteger(gstRateBps) || !isKnownGstRate(gstRateBps)) {
+    issues.push(err2("gstRateBps", "GST \u0915\u0940 \u0926\u0930 \u091A\u0941\u0928\u0928\u093E \u091C\u093C\u0930\u0942\u0930\u0940 \u0939\u0948"));
+  }
+  const hsnRaw = draft.hsnCode ?? null;
+  const hsnCode = typeof hsnRaw === "string" ? hsnRaw.trim() : null;
+  if (hsnCode !== null && hsnCode !== "" && !isValidHsn(hsnCode)) {
+    issues.push(err2("hsnCode", "HSN \u0915\u094B\u0921 4, 6 \u092F\u093E 8 \u0905\u0902\u0915 \u0915\u093E \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F"));
+  }
+  if (typeof draft.priceIncludesGst !== "boolean") {
+    issues.push(err2("priceIncludesGst", "\u092C\u0924\u093E\u0928\u093E \u0939\u094B\u0917\u093E \u0915\u093F \u0926\u093E\u092E \u092E\u0947\u0902 GST \u0936\u093E\u092E\u093F\u0932 \u0939\u0948 \u092F\u093E \u0928\u0939\u0940\u0902"));
+  }
+  const rawBarcodes = draft.barcodes ?? [];
+  const barcodes = [];
+  if (!Array.isArray(rawBarcodes)) {
+    issues.push(err2("barcodes", "\u092C\u093E\u0930\u0915\u094B\u0921 \u0915\u0940 \u0938\u0942\u091A\u0940 \u0938\u0939\u0940 \u0928\u0939\u0940\u0902 \u0939\u0948"));
+  } else {
+    const seen = /* @__PURE__ */ new Set();
+    for (const raw of rawBarcodes) {
+      const check = checkBarcode(String(raw));
+      if (!check.ok) {
+        issues.push(err2("barcodes", `\u092C\u093E\u0930\u0915\u094B\u0921 "${String(raw).trim()}": ${check.error}`));
+        continue;
+      }
+      if (seen.has(check.normalized)) {
+        issues.push(err2("barcodes", `\u092C\u093E\u0930\u0915\u094B\u0921 "${check.normalized}" \u0926\u094B \u092C\u093E\u0930 \u0932\u093F\u0916\u093E \u0917\u092F\u093E \u0939\u0948`));
+        continue;
+      }
+      seen.add(check.normalized);
+      barcodes.push(check.normalized);
+      if (check.warning) {
+        issues.push(warn("barcodes", `\u092C\u093E\u0930\u0915\u094B\u0921 "${check.normalized}": ${check.warning}`));
+      }
+    }
+  }
+  if (typeof draft.trackStock !== "boolean") {
+    issues.push(err2("trackStock", "\u092C\u0924\u093E\u0928\u093E \u0939\u094B\u0917\u093E \u0915\u093F \u0938\u094D\u091F\u0949\u0915 \u0917\u093F\u0928\u0928\u093E \u0939\u0948 \u092F\u093E \u0928\u0939\u0940\u0902"));
+  }
+  if (kind === "SERVICE" && draft.trackStock === true) {
+    issues.push(err2("trackStock", "\u092C\u093F\u0928\u093E \u0938\u094D\u091F\u0949\u0915 \u0935\u093E\u0932\u0940 \u091A\u0940\u091C\u093C \u0915\u093E \u0938\u094D\u091F\u0949\u0915 \u0928\u0939\u0940\u0902 \u0917\u093F\u0928\u093E \u091C\u093E \u0938\u0915\u0924\u093E"));
+  }
+  const lowStockAt = draft.lowStockAt ?? null;
+  if (lowStockAt !== null) {
+    if (!Number.isSafeInteger(lowStockAt) || lowStockAt <= 0) {
+      issues.push(err2("lowStockAt", "\u091A\u0947\u0924\u093E\u0935\u0928\u0940 \u0935\u093E\u0932\u0940 \u092E\u093E\u0924\u094D\u0930\u093E \u0936\u0942\u0928\u094D\u092F \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0939\u094B\u0928\u0940 \u091A\u093E\u0939\u093F\u090F"));
+    } else if (draft.trackStock === false) {
+      issues.push(warn("lowStockAt", "\u0938\u094D\u091F\u0949\u0915 \u0917\u093F\u0928\u093E \u0939\u0940 \u0928\u0939\u0940\u0902 \u091C\u093E \u0930\u0939\u093E, \u0924\u094B \u091A\u0947\u0924\u093E\u0935\u0928\u0940 \u0915\u093E \u0915\u094B\u0908 \u0905\u0938\u0930 \u0928\u0939\u0940\u0902 \u0939\u094B\u0917\u093E"));
+    }
+  }
+  const minSaleQty = draft.minSaleQty ?? null;
+  if (minSaleQty !== null && (!Number.isSafeInteger(minSaleQty) || minSaleQty <= 0)) {
+    issues.push(err2("minSaleQty", "\u0915\u092E \u0938\u0947 \u0915\u092E \u092E\u093E\u0924\u094D\u0930\u093E \u0936\u0942\u0928\u094D\u092F \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0939\u094B\u0928\u0940 \u091A\u093E\u0939\u093F\u090F"));
+  }
+  const qtyStep = draft.qtyStep ?? null;
+  if (qtyStep !== null) {
+    if (!Number.isSafeInteger(qtyStep) || qtyStep <= 0) {
+      issues.push(err2("qtyStep", "\u092E\u093E\u0924\u094D\u0930\u093E \u0915\u093E \u0917\u0941\u0923\u0915 \u0936\u0942\u0928\u094D\u092F \u0938\u0947 \u091C\u093C\u094D\u092F\u093E\u0926\u093E \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F"));
+    } else if (minSaleQty !== null && Number.isSafeInteger(minSaleQty) && minSaleQty > 0 && minSaleQty % qtyStep !== 0) {
+      issues.push(
+        err2(
+          "minSaleQty",
+          `\u0915\u092E \u0938\u0947 \u0915\u092E \u092E\u093E\u0924\u094D\u0930\u093E (${formatQuantitySmart(minSaleQty, measure)}) \u0917\u0941\u0923\u0915 (${formatQuantitySmart(qtyStep, measure)}) \u092E\u0947\u0902 \u092A\u0942\u0930\u0940 \u0928\u0939\u0940\u0902 \u092C\u0948\u0920\u0924\u0940`
+        )
+      );
+    }
+  }
+  const hasErrors = issues.some((i) => i.level === "error");
+  const cleaned = hasErrors ? null : {
+    kind,
+    measure,
+    saleUnit: draft.saleUnit,
+    salePrice,
+    mrp,
+    purchasePrice,
+    priceIncludesGst: draft.priceIncludesGst,
+    gstRateBps: toGstRate(gstRateBps),
+    hsnCode: hsnCode === "" ? null : hsnCode,
+    barcodes,
+    trackStock: draft.trackStock,
+    lowStockAt,
+    minSaleQty,
+    qtyStep
+  };
+  return { issues, hasErrors, cleaned };
+}
+
 // src/domain/variant.ts
 var MAX_VARIANT_DEPTH = 5;
 var MAX_VARIANT_NAME = 40;
@@ -1609,13 +1757,36 @@ function validateVariant(draft, context) {
 }
 
 // src/data/variantRepo.ts
-function rowToVariant(row) {
+function rowToDetail(row, barcodes) {
+  if (row.sale_price === null || row.kind === null || row.measure === null || row.sale_unit === null) {
+    return null;
+  }
+  return {
+    kind: row.kind,
+    measure: row.measure,
+    saleUnit: row.sale_unit,
+    salePrice: toPaise(row.sale_price),
+    mrp: row.mrp === null ? null : toPaise(row.mrp),
+    purchasePrice: row.purchase_price === null ? null : toPaise(row.purchase_price),
+    priceIncludesGst: row.price_includes_gst === 1,
+    gstRateBps: toGstRate(row.gst_rate_bps ?? 0),
+    hsnCode: row.hsn_code,
+    barcodes,
+    trackStock: row.track_stock === 1,
+    lowStockAt: row.low_stock_at === null ? null : toTicks(row.low_stock_at),
+    minSaleQty: row.min_sale_qty === null ? null : toTicks(row.min_sale_qty),
+    qtyStep: row.qty_step === null ? null : toTicks(row.qty_step)
+  };
+}
+function rowToVariant(row, barcodes = []) {
   return {
     id: row.id,
     productId: row.product_id,
     parentId: row.parent_id,
     name: row.name,
     sortOrder: row.sort_order,
+    detail: rowToDetail(row, barcodes),
+    barcodes,
     isActive: row.is_active === 1,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -1629,15 +1800,44 @@ var VariantRepo = class {
   constructor(db2) {
     this.db = db2;
   }
+  barcodesOf(variantId) {
+    const rows = this.db.prepare("SELECT barcode FROM variant_barcode WHERE variant_id = ? ORDER BY created_at, barcode").all(variantId);
+    return rows.map((r) => r.barcode);
+  }
   get(id) {
     const row = this.db.prepare("SELECT * FROM variant WHERE id = ?").get(id);
-    return row ? rowToVariant(row) : null;
+    return row ? rowToVariant(row, this.barcodesOf(row.id)) : null;
+  }
+  /**
+   * बारकोड से सीधे वही चीज़ जो बिकती है.
+   *
+   * scanner दुकान का सबसे तेज़ रास्ता है — उसे बीच में कुछ पूछना नहीं
+   * चाहिए. पैकेट पर छपा बारकोड उसी पत्ते पर लगा है जिसका अपना दाम है,
+   * इसलिए यहाँ से सीधे बिल में जाने लायक़ चीज़ मिलती है.
+   */
+  findByBarcode(barcode) {
+    const row = this.db.prepare(
+      `SELECT v.* FROM variant v
+         JOIN variant_barcode b ON b.variant_id = v.id
+         WHERE b.barcode = ?`
+    ).get(barcode);
+    return row ? rowToVariant(row, this.barcodesOf(row.id)) : null;
+  }
+  /** इस बारकोड पर पहले से किसकी चीज़ लगी है — जाँच के लिए. */
+  barcodeOwnerName(barcode, exceptVariantId) {
+    const row = this.db.prepare(
+      `SELECT p.name AS pname, v.name AS vname FROM variant v
+         JOIN variant_barcode b ON b.variant_id = v.id
+         JOIN product p ON p.id = v.product_id
+         WHERE b.barcode = ? AND (? IS NULL OR v.id != ?)`
+    ).get(barcode, exceptVariantId, exceptVariantId);
+    return row ? `${row.pname} \u2014 ${row.vname}` : null;
   }
   /** एक सामान की सारी पंक्तियाँ, सपाट. */
   rowsFor(productId, includeInactive = false) {
     const where = includeInactive ? "" : "AND is_active = 1";
     const rows = this.db.prepare(`SELECT * FROM variant WHERE product_id = ? ${where} ORDER BY sort_order, name`).all(productId);
-    return rows.map(rowToVariant);
+    return rows.map((row) => rowToVariant(row, this.barcodesOf(row.id)));
   }
   /** एक सामान का पूरा पेड़. पर्दा यही माँगता है. */
   treeFor(productId, includeInactive = false) {
@@ -1649,6 +1849,70 @@ var VariantRepo = class {
    * जाँच हमेशा उसी पेड़ पर होती है जो अभी डेटाबेस में है — पर्दे ने जो
    * भेजा उस पर नहीं. पर्दा पुराना हो सकता है; डेटाबेस नहीं.
    */
+  /**
+   * ब्यौरा भरना या बदलना — नाम/रिश्ता छेड़े बिना.
+   *
+   * `null` भेजने का मतलब है "ब्यौरा हटा दो". ये तब काम आता है जब कोई पत्ता
+   * गुच्छा बन जाए — पर हटाना अपने आप नहीं होता, दुकानदार के कहने पर ही.
+   */
+  saveDetail(id, detail) {
+    const before = this.get(id);
+    if (before === null) return notFound("\u092F\u0947 \u0935\u0947\u0930\u093F\u090F\u0902\u091F \u092E\u093F\u0932\u093E \u0939\u0940 \u0928\u0939\u0940\u0902");
+    let clean = null;
+    if (detail !== null) {
+      const check = validateVariantDetail(detail);
+      if (check.hasErrors || check.cleaned === null) {
+        return { ok: false, issues: [], detailIssues: check.issues };
+      }
+      clean = check.cleaned;
+      const clash = checkBarcodeConflicts(
+        clean.barcodes ?? [],
+        (code) => this.barcodeOwnerName(code, id)
+      );
+      if (clash.length > 0) {
+        return { ok: false, issues: [], detailIssues: [...check.issues, ...clash] };
+      }
+    }
+    const at = nowIso();
+    const write = this.db.transaction(() => {
+      this.db.prepare(
+        `UPDATE variant SET
+             kind = ?, measure = ?, sale_unit = ?, sale_price = ?, mrp = ?,
+             purchase_price = ?, price_includes_gst = ?, gst_rate_bps = ?, hsn_code = ?,
+             track_stock = ?, low_stock_at = ?, min_sale_qty = ?, qty_step = ?,
+             updated_at = ?
+           WHERE id = ?`
+      ).run(
+        clean?.kind ?? null,
+        clean?.measure ?? null,
+        clean?.saleUnit ?? null,
+        clean?.salePrice ?? null,
+        clean?.mrp ?? null,
+        clean?.purchasePrice ?? null,
+        clean === null ? null : clean.priceIncludesGst ? 1 : 0,
+        clean?.gstRateBps ?? null,
+        clean?.hsnCode ?? null,
+        clean === null ? null : clean.trackStock ? 1 : 0,
+        clean?.lowStockAt ?? null,
+        clean?.minSaleQty ?? null,
+        clean?.qtyStep ?? null,
+        at,
+        id
+      );
+      this.db.prepare("DELETE FROM variant_barcode WHERE variant_id = ?").run(id);
+      const add2 = this.db.prepare(
+        "INSERT INTO variant_barcode (barcode, variant_id, created_at) VALUES (?, ?, ?)"
+      );
+      for (const code of clean?.barcodes ?? []) add2.run(code, id, at);
+      const after = this.get(id);
+      this.db.prepare(
+        `INSERT INTO audit_log (at, entity, entity_id, action, before_json, after_json, actor)
+           VALUES (?, 'variant', ?, 'UPDATE', ?, ?, NULL)`
+      ).run(at, id, JSON.stringify(before), JSON.stringify(after));
+      return after;
+    });
+    return { ok: true, variant: write() };
+  }
   save(draft, existingId = null) {
     const clean = { ...draft, name: normalizeVariantName(draft.name) };
     const product = this.db.prepare("SELECT id FROM product WHERE id = ?").get(clean.productId);
@@ -1862,7 +2126,7 @@ async function probeOnline(options = {}) {
 
 // electron/main.ts
 var APP_VERSION = true ? "0.3.0" : "0.0.0";
-var BRAIN_VERSION = true ? "0.10.0" : APP_VERSION;
+var BRAIN_VERSION = true ? "0.11.0" : APP_VERSION;
 var SHOP_NAME = true ? "\u091D\u093E\u091C\u0940 \u091A\u0942\u0921\u093C\u093E \u092E\u093F\u0932" : "\u0926\u0941\u0915\u093E\u0928 POS";
 var BRAIN_DIR = process.env.POS_BRAIN_DIR ?? __dirname;
 var UPDATE_BASE = process.env.POS_UPDATE_BASE ?? "https://raw.githubusercontent.com/deepeshjha98/POS_Application_release/main";
@@ -2195,6 +2459,7 @@ var METHODS = {
     tree: variants.treeFor(String(productId ?? ""), includeInactive === true)
   }),
   saveVariant: ([draft, id]) => variants.save(draft, id === null || id === void 0 ? null : String(id)),
+  saveVariantDetail: ([id, detail]) => variants.saveDetail(String(id ?? ""), detail ?? null),
   setVariantActive: ([id, isActive]) => variants.setActive(String(id ?? ""), isActive === true),
   categories: ([includeInactive]) => ({
     categories: categories.list(includeInactive === true),
