@@ -1510,7 +1510,7 @@ async function probeOnline(options = {}) {
 
 // electron/main.ts
 var APP_VERSION = true ? "0.3.0" : "0.0.0";
-var BRAIN_VERSION = true ? "0.4.0" : APP_VERSION;
+var BRAIN_VERSION = true ? "0.5.0" : APP_VERSION;
 var BRAIN_DIR = process.env.POS_BRAIN_DIR ?? __dirname;
 var UPDATE_BASE = process.env.POS_UPDATE_BASE ?? "https://raw.githubusercontent.com/deepeshjha98/POS_Application_release/main";
 function versionLessThan(a, b) {
@@ -1564,7 +1564,19 @@ function localWebVersion() {
   if ((0, import_node_fs.existsSync)(file)) return (0, import_node_fs.readFileSync)(file, "utf8").trim();
   return APP_VERSION;
 }
+function downloadedIcon() {
+  try {
+    const file = (0, import_node_path.join)(import_electron.app.getPath("userData"), "icon.ico");
+    return (0, import_node_fs.existsSync)(file) ? file : null;
+  } catch {
+    return null;
+  }
+}
 function appIcon() {
+  if (process.platform === "win32") {
+    const fresh = downloadedIcon();
+    if (fresh) return fresh;
+  }
   const places = [process.env.POS_SHIPPED_BRAIN_DIR, BRAIN_DIR, __dirname];
   for (const folder of places) {
     if (!folder) continue;
@@ -1579,6 +1591,61 @@ function appIcon() {
     if ((0, import_node_fs.existsSync)(packed)) return packed;
   }
   return void 0;
+}
+function shortcutIcon() {
+  const best = appIcon();
+  return best && best.endsWith(".ico") ? best : null;
+}
+function shortcutPlaces() {
+  return [
+    (0, import_node_path.join)(import_electron.app.getPath("desktop"), "\u0926\u0941\u0915\u093E\u0928 POS.lnk"),
+    (0, import_node_path.join)(import_electron.app.getPath("appData"), "Microsoft", "Windows", "Start Menu", "Programs", "\u0926\u0941\u0915\u093E\u0928 POS.lnk")
+  ];
+}
+function shortcutIsCurrent(file, icon) {
+  try {
+    const old = import_electron.shell.readShortcutLink(file);
+    if (old.target !== process.execPath) return false;
+    if (icon && old.icon !== icon) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+function ensureShortcuts(force = false) {
+  if (process.platform !== "win32") {
+    return { ok: false, made: [], reason: "\u092F\u0947 \u0938\u093F\u0930\u094D\u092B\u093C Windows \u092A\u0930 \u092C\u0928\u0924\u093E \u0939\u0948" };
+  }
+  const icon = shortcutIcon();
+  const made = [];
+  let skipped = 0;
+  try {
+    for (const target of shortcutPlaces()) {
+      const there = (0, import_node_fs.existsSync)(target);
+      if (there && !force && shortcutIsCurrent(target, icon)) {
+        skipped += 1;
+        continue;
+      }
+      (0, import_node_fs.mkdirSync)((0, import_node_path.dirname)(target), { recursive: true });
+      const done = import_electron.shell.writeShortcutLink(target, there ? "update" : "create", {
+        target: process.execPath,
+        cwd: (0, import_node_path.dirname)(process.execPath),
+        description: "\u0926\u0941\u0915\u093E\u0928 POS \u2014 \u0926\u0941\u0915\u093E\u0928 \u0915\u093E \u0939\u093F\u0938\u093E\u092C",
+        appUserModelId: "in.dukan.pos",
+        ...icon ? { icon, iconIndex: 0 } : {}
+      });
+      if (done) made.push(target);
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      made,
+      reason: error instanceof Error ? error.message : String(error)
+    };
+  }
+  if (made.length > 0) return { ok: true, made };
+  if (skipped > 0) return { ok: true, made: [], reason: "\u092A\u0939\u0932\u0947 \u0938\u0947 \u092C\u0928\u0947 \u0939\u0941\u090F \u0939\u0948\u0902" };
+  return { ok: false, made: [], reason: "\u092C\u0928 \u0928\u0939\u0940\u0902 \u092A\u093E\u092F\u093E" };
 }
 function markBrainVerified() {
   const shipped = process.env.POS_SHIPPED_BRAIN_DIR;
@@ -1747,6 +1814,13 @@ async function applyUpdate() {
     (0, import_node_fs.writeFileSync)((0, import_node_path.join)(folder, "version.txt"), info.web, "utf8");
     webApplied = true;
   }
+  try {
+    const fresh = await downloadVerified("icon/icon.ico");
+    const onDisk = (0, import_node_path.join)(userData, "icon.ico");
+    const same = (0, import_node_fs.existsSync)(onDisk) && (0, import_node_fs.readFileSync)(onDisk).equals(fresh);
+    if (!same) (0, import_node_fs.writeFileSync)(onDisk, fresh);
+  } catch {
+  }
   const brainLatest = info.brain ?? BRAIN_VERSION;
   if (versionLessThan(BRAIN_VERSION, brainLatest)) {
     const [mainJs, preloadJs] = await Promise.all([
@@ -1847,7 +1921,16 @@ ${message}`);
     if (mainWindow) void mainWindow.loadFile(webRoot());
   });
   import_electron.ipcMain.handle("pos:open-data-folder", () => import_electron.shell.openPath(import_electron.app.getPath("userData")));
+  import_electron.ipcMain.handle("pos:make-shortcut", () => ensureShortcuts(true));
   createWindow();
+  try {
+    const shortcut = ensureShortcuts();
+    if (!shortcut.ok && shortcut.made.length === 0) {
+      console.warn("[pos] \u0936\u0949\u0930\u094D\u091F\u0915\u091F \u0928\u0939\u0940\u0902 \u092C\u0928\u093E:", shortcut.reason);
+    }
+  } catch (error) {
+    console.warn("[pos] \u0936\u0949\u0930\u094D\u091F\u0915\u091F \u092C\u0928\u093E\u0924\u0947 \u0938\u092E\u092F \u0917\u0921\u093C\u092C\u0921\u093C:", error);
+  }
   import_electron.app.on("activate", () => {
     if (import_electron.BrowserWindow.getAllWindows().length === 0) createWindow();
   });
